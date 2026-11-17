@@ -9,10 +9,10 @@ Spring Boot 3 + Thymeleaf + HTMX point-of-sale with stock tracking. H2 file DB (
 open http://localhost:8080
 ```
 
-Default admin (seeded at startup from `application.yml`): **admin / admin123**.
+Default admin in dev: **admin / admin123** (from `application-dev.yml`).
 Dev sample data adds cashier **cashier1 / cashier123** and 15 products across 4 categories.
-Change admin credentials via `app.admin.*` properties or `APP_ADMIN_USERNAME` / `APP_ADMIN_PASSWORD` env vars before first start.
-Prod: PostgreSQL — set `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`, then `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod`.
+In production, `APP_ADMIN_PASSWORD` is required (the app refuses to start otherwise) and cannot be `admin123`.
+Prod: PostgreSQL — set `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`, `APP_ADMIN_PASSWORD`, then `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod`.
 
 ## Tests
 
