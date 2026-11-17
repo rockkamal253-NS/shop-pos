@@ -36,3 +36,7 @@ The default profile is `dev`, so forgetting to select `prod` also seeds `cashier
 
 ## Out of scope (do NOT do now)
 Change-password screen and login lockout. Note them in your reply as follow-ups.
+
+## Browser check
+- Dev start logs "Seeded admin user" and admin / admin123 logs in.
+- Start with the prod profile and no APP_ADMIN_PASSWORD against a fresh empty DB (use a temp DB path, never data/): the app refuses to start with a clear message.

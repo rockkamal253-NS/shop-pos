@@ -29,3 +29,7 @@ C. Any cashier can apply a 100% discount (business decision — make the limit c
 ## Done when
 - No code path can put quantity < 1 into a cart or a sale.
 - Oversized numbers produce a clear toast instead of a database error.
+
+## Browser check
+- Put a product in the cart, set its stock to 0 from the admin screen in another tab, then change its quantity in the cart: the line is removed with an "out of stock" message.
+- Apply a 50% discount as cashier1: rejected with the limit message. Enter a cash amount of 99999999999: rejected with "Amount is too large."

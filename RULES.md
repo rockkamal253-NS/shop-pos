@@ -31,3 +31,13 @@ Treat every command as if it runs the instant you write it.
 - `./mvnw -q clean verify` passes.
 - New behavior has at least one test that fails without the change.
 - No unrelated formatting churn in the diff.
+
+## Manual browser check (after the build is green)
+Run this only when the task file has a "Browser check" section.
+1. Start the app in dev: ./mvnw spring-boot:run (dev profile, port from application.yml). Run it in the background and wait until the log shows it has started.
+2. Open it only at http://localhost:<port>. Never browse to any external site and never sign in to any real account.
+3. Log in with the dev accounts only (admin / cashier1; passwords are in application-dev.yml and README).
+4. Do exactly the steps in the task's "Browser check" list and report PASS or FAIL for each. A FAIL means fix it and rerun the build, not skip it.
+5. Stop the app when done (kill the process you started). Do not leave it running.
+6. Do not commit screenshots, recordings, or the data/ folder.
+7. If the app fails to start or the browser step is blocked, report it and stop. Do not change config to work around it.

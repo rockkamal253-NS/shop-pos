@@ -33,3 +33,9 @@ No controller uses `@Valid`, so every Bean Validation annotation on the forms is
 ## Done when
 - A negative or blank adjust never changes stock or writes a movement.
 - A product form with errors re-renders with messages instead of a 500 page.
+
+## Browser check
+- Log in as admin > Inventory > Adjust stock. Quantity -5, submit: form error, stock unchanged.
+- Blank reason, submit: form error, no movement created.
+- Create a product with a blank name: form re-renders with a message, no error page.
+- Create a product with price 1.234: saves as 1.23.

@@ -29,3 +29,7 @@
 
 ## Done when
 - A forced error during an htmx request shows a toast and leaves the cart untouched; no full page appears inside the cart panel.
+
+## Browser check
+- Open /pos in two tabs, same product with stock 1 in both carts. Complete the sale in tab A, then in tab B: a toast appears and the cart stays; no full page appears inside the cart panel.
+- Add a product with an Arabic name to the cart: the toast shows the full name.

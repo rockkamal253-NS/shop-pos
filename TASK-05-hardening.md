@@ -29,3 +29,8 @@ Do this only after TASK-01 to TASK-04 are committed and green.
 
 ## Done when
 `./mvnw -q clean verify` is green and `V2__sale_version.sql` applies on a fresh H2 database.
+
+## Browser check
+- Log in as cashier1: the product list has no Cost column.
+- cashier1 opens a receipt of a sale made by admin: 404.
+- The dashboard "today" total matches sales made just now.
