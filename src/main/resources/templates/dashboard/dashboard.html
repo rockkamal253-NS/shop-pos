@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Dashboard', ~{::#page-content})}">
+<head><title>Dashboard</title></head>
+<body>
+<div id="page-content">
+
+    <!-- Stat cards -->
+    <div class="grid gap-4 md:grid-cols-3">
+        <div class="card p-5">
+            <div class="flex items-center justify-between">
+                <p class="text-sm text-slate-500">Today&rsquo;s sales</p>
+                <span class="flex h-9 w-9 items-center justify-center rounded-md bg-primary-50 text-primary-600">
+                    <svg th:replace="~{fragments/icons :: banknote('h-5 w-5')}"></svg>
+                </span>
+            </div>
+            <p class="mt-2 text-xl font-semibold tabular-nums text-slate-900" th:text="${@fmt.money(stats.todayRevenue)}">0.00</p>
+            <p class="mt-1 text-xs text-slate-400">All completed sales since midnight</p>
+        </div>
+        <div class="card p-5">
+            <div class="flex items-center justify-between">
+                <p class="text-sm text-slate-500">Transactions today</p>
+                <span class="flex h-9 w-9 items-center justify-center rounded-md bg-primary-50 text-primary-600">
+                    <svg th:replace="~{fragments/icons :: receipt('h-5 w-5')}"></svg>
+                </span>
+            </div>
+            <p class="mt-2 text-xl font-semibold tabular-nums text-slate-900" th:text="${stats.todayTransactions}">0</p>
+            <p class="mt-1 text-xs text-slate-400">
+                <a th:href="@{/sales}" class="text-primary-600 hover:underline">View sales history</a>
+            </p>
+        </div>
+        <div class="card p-5">
+            <div class="flex items-center justify-between">
+                <p class="text-sm text-slate-500">Low-stock alerts</p>
+                <span class="flex h-9 w-9 items-center justify-center rounded-md bg-warning-50 text-warning-600">
+                    <svg th:replace="~{fragments/icons :: alert('h-5 w-5')}"></svg>
+                </span>
+            </div>
+            <p class="mt-2 text-xl font-semibold tabular-nums text-slate-900" th:text="${stats.lowStock.size()}">0</p>
+            <p class="mt-1 text-xs text-slate-400">Products at or below their threshold</p>
+        </div>
+    </div>
+
+    <div class="mt-6 grid gap-6 xl:grid-cols-2">
+
+        <!-- Low stock -->
+        <section>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-sm font-semibold text-slate-800">Low stock</h2>
+                    <a th:href="@{/inventory/adjust}" class="btn btn-secondary btn-sm">
+                        <svg th:replace="~{fragments/icons :: archive('h-5 w-5')}"></svg>
+                        Adjust stock
+                    </a>
+                </div>
+                <div th:if="${!stats.lowStock.isEmpty()}">
+                    <table class="data">
+                        <thead>
+                        <tr>
+                            <th class="th">Product</th>
+                            <th class="th num">Stock</th>
+                            <th class="th num">Threshold</th>
+                            <th class="th">Status</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr class="row-hover" th:each="p : ${stats.lowStock}">
+                            <td class="td">
+                                <span class="block font-medium text-slate-800" th:text="${p.name}">Name</span>
+                                <span class="block text-xs text-slate-400" th:text="${p.sku}">SKU</span>
+                            </td>
+                            <td class="td num font-medium" th:text="${p.stockQuantity}">0</td>
+                            <td class="td num text-slate-400" th:text="${p.lowStockThreshold}">0</td>
+                            <td class="td">
+                                <span th:if="${p.isOutOfStock()}" class="badge badge-danger">Out of stock</span>
+                                <span th:unless="${p.isOutOfStock()}" class="badge badge-warning">Low stock</span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 px-4 py-10 text-center" th:unless="${!stats.lowStock.isEmpty()}">
+                    <svg th:replace="~{fragments/icons :: check('h-7 w-7 text-success-500')}"></svg>
+                    <p class="font-medium text-slate-700">All stocked up</p>
+                    <p class="text-xs text-slate-400">No products are at or below their low-stock threshold.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Top products this week -->
+        <section>
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-sm font-semibold text-slate-800">Top 5 products this week</h2>
+                    <span class="badge badge-neutral">Since Monday</span>
+                </div>
+                <div th:if="${!stats.topProducts.isEmpty()}">
+                    <table class="data">
+                        <thead>
+                        <tr>
+                            <th class="th">Product</th>
+                            <th class="th num">Units sold</th>
+                            <th class="th num">Revenue</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr class="row-hover" th:each="t, iter : ${stats.topProducts}">
+                            <td class="td">
+                                <span class="flex items-center gap-2.5">
+                                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold tabular-nums text-slate-500"
+                                          th:text="${iter.count}">1</span>
+                                    <span class="truncate font-medium text-slate-800" th:text="${t.productName}">Name</span>
+                                </span>
+                            </td>
+                            <td class="td num font-medium" th:text="${t.quantitySold}">0</td>
+                            <td class="td num" th:text="${@fmt.money(t.revenue)}">0.00</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 px-4 py-10 text-center" th:unless="${!stats.topProducts.isEmpty()}">
+                    <svg th:replace="~{fragments/icons :: trending('h-7 w-7 text-slate-300')}"></svg>
+                    <p class="font-medium text-slate-700">No sales yet this week</p>
+                    <p class="text-xs text-slate-400">Completed sales will show up here.</p>
+                    <a th:href="@{/pos}" class="btn btn-primary mt-2">Open register</a>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Products', ~{::#page-content})}">
+<head><title>Products</title></head>
+<body>
+<div id="page-content">
+
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <form th:action="@{/products}" method="get" class="relative w-full max-w-sm" role="search">
+            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg th:replace="~{fragments/icons :: search('h-4 w-4')}"></svg>
+            </span>
+            <input type="search" name="q" th:value="${q}"
+                   class="input pl-9" placeholder="Search name, SKU or barcode&hellip;">
+        </form>
+        <a th:if="${isAdmin}" th:href="@{/products/new}" class="btn btn-primary">
+            <svg th:replace="~{fragments/icons :: plus('h-4 w-4')}"></svg>
+            New product
+        </a>
+    </div>
+
+    <div class="table-wrap max-h-[65vh]" th:if="${page.hasContent()}">
+        <table class="data">
+            <thead>
+            <tr>
+                <th class="th">Product</th>
+                <th class="th">Barcode</th>
+                <th class="th">Category</th>
+                <th class="th num">Cost</th>
+                <th class="th num">Sell</th>
+                <th class="th num">Stock</th>
+                <th class="th">Status</th>
+                <th th:if="${isAdmin}" class="th">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr class="row-hover" th:each="p : ${page.content}">
+                <td class="td">
+                    <span class="block font-medium text-slate-800" th:text="${p.name}">Name</span>
+                    <span class="block text-xs text-slate-400" th:text="${p.sku}">SKU</span>
+                </td>
+                <td class="td text-xs text-slate-500" th:text="${p.barcode}">0000000000</td>
+                <td class="td text-slate-500" th:text="${p.category.name}">Category</td>
+                <td class="td num" th:text="${@fmt.money(p.costPrice)}">0.00</td>
+                <td class="td num font-medium" th:text="${@fmt.money(p.sellPrice)}">0.00</td>
+                <td class="td num">
+                    <span class="font-medium tabular-nums" th:text="${p.stockQuantity}">0</span>
+                    <span class="ml-1 text-xs text-slate-400 tabular-nums" th:text="'/ ' + ${p.lowStockThreshold}">/ 5</span>
+                </td>
+                <td class="td">
+                    <span th:if="${p.isOutOfStock() or !p.active}" class="badge badge-danger">Out of stock</span>
+                    <span th:if="${p.isLowStock() and p.active}" class="badge badge-warning">Low stock</span>
+                    <span th:if="${!p.isOutOfStock() and !p.isLowStock() and p.active}" class="badge badge-success">In stock</span>
+                    <span th:if="${!p.active}" class="badge badge-neutral ml-1">Inactive</span>
+                </td>
+                <td th:if="${isAdmin}" class="td">
+                    <div class="flex items-center justify-end gap-1">
+                        <a th:href="@{/inventory/movements(productId=${p.id})}" class="btn btn-ghost btn-sm" title="Stock history">
+                            <svg th:replace="~{fragments/icons :: history('h-5 w-5')}"></svg>
+                        </a>
+                        <a th:href="@{/inventory/adjust(productId=${p.id})}" class="btn btn-ghost btn-sm" title="Adjust stock">
+                            <svg th:replace="~{fragments/icons :: archive('h-5 w-5')}"></svg>
+                        </a>
+                        <a th:href="@{/products/{id}/edit(id=${p.id})}" class="btn btn-ghost btn-sm" title="Edit">
+                            <svg th:replace="~{fragments/icons :: pencil('h-4 w-4')}"></svg>
+                        </a>
+                        <form th:action="@{/products/{id}/delete(id=${p.id})}" method="post"
+                              th:data-confirm="${'Delete product ' + p.name + '? This cannot be undone.'}"
+                              data-confirm-title="Delete product">
+                            <button type="submit" class="btn btn-ghost btn-sm text-danger-600 hover:bg-danger-50" title="Delete">
+                                <svg th:replace="~{fragments/icons :: trash('h-4 w-4')}"></svg>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card flex flex-col items-center gap-2 px-4 py-16 text-center" th:unless="${page.hasContent()}">
+        <svg th:replace="~{fragments/icons :: package('h-8 w-8 text-slate-300')}"></svg>
+        <p class="font-medium text-slate-700"
+           th:text="${q != null and !q.isEmpty()} ? 'No products match your search.' : 'No products yet.'">Empty</p>
+        <p class="text-xs text-slate-400"
+           th:text="${q != null and !q.isEmpty()} ? 'Try a different name, SKU or barcode.' : 'Add your first product to start selling.'">Hint</p>
+        <a th:if="${isAdmin}" th:href="@{/products/new}" class="btn btn-primary mt-2">
+            <svg th:replace="~{fragments/icons :: plus('h-4 w-4')}"></svg>
+            New product
+        </a>
+    </div>
+
+    <th:block th:with="pageUrl=${q != null and !q.isEmpty()} ? @{/products(q=${q})} : @{/products}">
+        <th:block th:replace="~{fragments/pager :: pager(${page}, ${pageUrl})}"></th:block>
+    </th:block>
+
+</div>
+</body>
+</html>

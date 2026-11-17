@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Stock movements', ~{::#page-content})}">
+<head><title>Stock movements</title></head>
+<body>
+<div id="page-content">
+
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <a th:href="@{/products}" class="btn btn-secondary btn-sm" title="Back to products">
+                <svg th:replace="~{fragments/icons :: arrow-left('h-4 w-4')}"></svg>
+            </a>
+            <div>
+                <h2 class="font-medium text-slate-800" th:text="${product.name}">Product</h2>
+                <p class="text-xs text-slate-400"
+                   th:text="${product.sku} + ' &middot; ' + ${product.barcode} + ' &middot; ' + ${product.category.name}">SKU</p>
+            </div>
+            <span th:if="${product.isOutOfStock()}" class="badge badge-danger">Out of stock</span>
+            <span th:if="${product.isLowStock()}" class="badge badge-warning">Low stock</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="text-right">
+                <p class="text-xs text-slate-500">Current stock</p>
+                <p class="text-base font-semibold tabular-nums text-slate-800" th:text="${product.stockQuantity}">0</p>
+            </div>
+            <a th:href="@{/inventory/adjust(productId=${product.id})}" class="btn btn-primary btn-sm">
+                <svg th:replace="~{fragments/icons :: archive('h-5 w-5')}"></svg>
+                Adjust stock
+            </a>
+        </div>
+    </div>
+
+    <div class="table-wrap max-h-[65vh]" th:if="${page.hasContent()}">
+        <table class="data">
+            <thead>
+            <tr>
+                <th class="th">When</th>
+                <th class="th">Type</th>
+                <th class="th num">Change</th>
+                <th class="th num">Stock after</th>
+                <th class="th">Reference</th>
+                <th class="th">By</th>
+                <th class="th">Reason</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr class="row-hover" th:each="m : ${page.content}">
+                <td class="td whitespace-nowrap text-slate-500" th:text="${@fmt.dateTime(m.createdAt)}">date</td>
+                <td class="td">
+                    <span th:switch="${m.type.name()}">
+                        <span th:case="'RECEIVE'" class="badge badge-success">Receive</span>
+                        <span th:case="'CORRECTION'" class="badge badge-primary">Correction</span>
+                        <span th:case="'DAMAGE'" class="badge badge-danger">Damage</span>
+                        <span th:case="'SALE'" class="badge badge-neutral">Sale</span>
+                        <span th:case="'VOID_RESTORE'" class="badge badge-warning">Void restore</span>
+                    </span>
+                </td>
+                <td class="td num font-medium"
+                    th:classappend="${m.quantityDelta >= 0} ? 'text-success-600' : 'text-danger-600'"
+                    th:text="${m.quantityDelta >= 0 ? '+' : ''} + ${m.quantityDelta}">+0</td>
+                <td class="td num tabular-nums" th:text="${m.stockAfter}">0</td>
+                <td class="td text-xs text-slate-400" th:text="${m.reference}">REF</td>
+                <td class="td text-slate-500" th:text="${m.user.displayName}">User</td>
+                <td class="td text-slate-500" th:text="${m.note}">note</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card flex flex-col items-center gap-2 px-4 py-16 text-center" th:unless="${page.hasContent()}">
+        <svg th:replace="~{fragments/icons :: archive('h-8 w-8 text-slate-300')}"></svg>
+        <p class="font-medium text-slate-700">No stock movements yet.</p>
+        <p class="text-xs text-slate-400">Receive stock or record an adjustment to see it here.</p>
+        <a th:href="@{/inventory/adjust(productId=${product.id})}" class="btn btn-primary mt-2">Adjust stock</a>
+    </div>
+
+    <th:block th:replace="~{fragments/pager :: pager(${page}, @{/inventory/movements(productId=${product.id})})}"></th:block>
+
+</div>
+</body>
+</html>

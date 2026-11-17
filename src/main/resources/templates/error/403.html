@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Access denied', ~{::#page-content})}">
+<head><title>Access denied</title></head>
+<body>
+<div id="page-content" class="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+    <span class="flex h-12 w-12 items-center justify-center rounded-full bg-danger-50 text-danger-600">
+        <svg th:replace="~{fragments/icons :: alert('h-6 w-6')}"></svg>
+    </span>
+    <div>
+        <h2 class="text-base font-medium text-slate-900">You do not have access to this page</h2>
+        <p class="mt-1 text-slate-500">This section is restricted to administrators. Ask your manager if you need access.</p>
+    </div>
+    <a th:href="@{/pos}" class="btn btn-primary mt-2">
+        <svg th:replace="~{fragments/icons :: cart}"></svg>
+        Back to register
+    </a>
+</div>
+</body>
+</html>

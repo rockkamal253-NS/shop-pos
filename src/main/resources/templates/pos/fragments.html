@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><title>pos fragments</title></head>
+<body>
+
+<!-- ============ Product results grid (main swap target #results-area) ============ -->
+<th:block th:fragment="results">
+    <p class="mb-2 text-xs text-slate-400" th:if="${q != null and !q.isEmpty()}">
+        <span class="tabular-nums" th:text="${results.size()}">0</span>
+        result(s) for &ldquo;<span th:text="${q}"></span>&rdquo;
+    </p>
+
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3" th:if="${!results.isEmpty()}">
+        <div class="card flex flex-col p-3" th:each="p : ${results}">
+            <div class="min-w-0 flex-1">
+                <p class="truncate font-medium text-slate-800" th:text="${p.name}">Name</p>
+                <p class="mt-0.5 truncate text-xs text-slate-400" th:text="${p.sku} + ' &middot; ' + ${p.category.name}">SKU</p>
+            </div>
+            <div class="mt-2.5 flex items-center justify-between gap-2">
+                <span class="text-base font-semibold tabular-nums text-slate-900" th:text="${@fmt.money(p.sellPrice)}">0.00</span>
+                <span th:if="${p.isOutOfStock()}" class="badge badge-danger">Out</span>
+                <span th:unless="${p.isOutOfStock()}" class="badge badge-neutral tabular-nums"
+                      th:text="${p.isLowStock() ? 'Low: ' + p.stockQuantity : 'Stock: ' + p.stockQuantity}">Stock</span>
+            </div>
+            <button th:if="${p.active and !p.isOutOfStock()}"
+                    class="btn btn-primary mt-3 h-11"
+                    th:attr="hx-post=@{/pos/cart/add/{id}(id=${p.id})}" hx-target="#cart-panel" hx-swap="innerHTML">
+                <svg th:replace="~{fragments/icons :: plus('h-4 w-4')}"></svg>
+                Add
+            </button>
+            <button th:if="${p.isOutOfStock()}" disabled class="btn btn-secondary mt-3 h-11">Out of stock</button>
+            <button th:if="${!p.active}" disabled class="btn btn-secondary mt-3 h-11">Inactive</button>
+        </div>
+    </div>
+
+    <div class="card flex flex-col items-center gap-1.5 px-4 py-12 text-center" th:unless="${!results.isEmpty()}">
+        <svg th:replace="~{fragments/icons :: search('h-7 w-7 text-slate-300')}"></svg>
+        <p class="font-medium text-slate-700">No products found</p>
+        <p class="text-xs text-slate-400">Try a different name, SKU or barcode.</p>
+    </div>
+</th:block>
+
+<!-- ============ Scan response: results grid + out-of-band cart refresh ============ -->
+<th:block th:fragment="scan">
+    <th:block th:replace="~{pos/fragments :: results}"></th:block>
+    <th:block th:replace="~{pos/fragments :: cartOob}"></th:block>
+</th:block>
+
+<!-- ============ Out-of-band cart panel (swaps INTO #cart-panel innerHTML) ============ -->
+<th:block th:fragment="cartOob">
+    <div id="cart-panel" hx-swap-oob="innerHTML">
+        <th:block th:replace="~{pos/fragments :: cartInner}"></th:block>
+    </div>
+</th:block>
+
+<!-- ============ Cart panel inner content ============ -->
+<th:block th:fragment="cartInner">
+
+    <div class="card-header shrink-0">
+        <h2 class="text-sm font-semibold text-slate-800">Current sale</h2>
+        <div class="flex items-center gap-1.5">
+            <span class="badge badge-primary tabular-nums"
+                  th:text="${cart.lines.size()} + ' item' + (${cart.lines.size()} == 1 ? '' : 's')">0 items</span>
+            <form th:action="@{/pos/cart/clear}" method="post"
+                  data-confirm="Remove all items from the cart?" data-confirm-title="Clear cart">
+                <button type="submit" class="btn btn-ghost btn-sm" title="Clear cart"
+                        th:disabled="${cart.lines.isEmpty()}">
+                    <svg th:replace="~{fragments/icons :: trash('h-4 w-4')}"></svg>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto">
+        <div class="space-y-2 px-4 py-3" th:if="${!cart.lines.isEmpty()}">
+            <div th:each="line : ${cart.lines}" class="rounded-md border border-slate-200 p-2.5">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-medium text-slate-800" th:text="${line.product.name}">Name</p>
+                        <p class="mt-0.5 text-xs text-slate-400 tabular-nums"
+                           th:text="${@fmt.money(line.unitPrice)} + ' each'">0.00</p>
+                    </div>
+                    <span class="shrink-0 text-sm font-semibold tabular-nums text-slate-800"
+                          th:text="${@fmt.money(line.lineTotal)}">0.00</span>
+                </div>
+                <div class="mt-2 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" class="btn btn-secondary h-11 w-11 px-0" aria-label="Decrease quantity"
+                                th:attr="hx-post=@{/pos/cart/qty/{id}(id=${line.product.id}, qty=${line.quantity - 1})}"
+                                hx-target="#cart-panel" hx-swap="innerHTML">
+                            <svg th:replace="~{fragments/icons :: minus('h-4 w-4')}"></svg>
+                        </button>
+                        <input type="number" name="qty" min="1" th:value="${line.quantity}"
+                               class="input num h-11 w-16 px-1 text-center" aria-label="Quantity"
+                               th:attr="hx-post=@{/pos/cart/qty/{id}(id=${line.product.id})}"
+                               hx-trigger="change" hx-target="#cart-panel" hx-swap="innerHTML">
+                        <button type="button" class="btn btn-secondary h-11 w-11 px-0" aria-label="Increase quantity"
+                                th:attr="hx-post=@{/pos/cart/qty/{id}(id=${line.product.id}, qty=${line.quantity + 1})}"
+                                hx-target="#cart-panel" hx-swap="innerHTML">
+                            <svg th:replace="~{fragments/icons :: plus('h-4 w-4')}"></svg>
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-ghost h-11 w-11 px-0 text-danger-600 hover:bg-danger-50"
+                            aria-label="Remove item"
+                            th:attr="hx-post=@{/pos/cart/remove/{id}(id=${line.product.id})}"
+                            hx-target="#cart-panel" hx-swap="innerHTML">
+                        <svg th:replace="~{fragments/icons :: x('h-4 w-4')}"></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center gap-1.5 px-4 py-10 text-center" th:unless="${!cart.lines.isEmpty()}">
+            <svg th:replace="~{fragments/icons :: cart('h-7 w-7 text-slate-300')}"></svg>
+            <p class="font-medium text-slate-700">Cart is empty</p>
+            <p class="text-xs text-slate-400">Scan a barcode or tap &ldquo;Add&rdquo; on a product.</p>
+        </div>
+    </div>
+
+    <div class="shrink-0 space-y-3 border-t border-slate-200 px-4 py-4">
+        <div th:if="${checkoutError}"
+             class="flex items-start gap-2 rounded-md border border-danger-500/30 bg-danger-50 px-3 py-2 text-xs text-danger-700">
+            <svg th:replace="~{fragments/icons :: alert('h-3.5 w-3.5 mt-0.5 shrink-0')}"></svg>
+            <span th:text="${checkoutError}">Error</span>
+        </div>
+
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-slate-500">Subtotal</span>
+            <span class="font-medium tabular-nums text-slate-800" th:text="${@fmt.money(cart.subtotal)}">0.00</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <select name="discountType" class="input h-10 w-32 shrink-0 text-xs"
+                    aria-label="Discount type"
+                    th:attr="hx-post=@{/pos/cart/discount}" hx-trigger="change" hx-target="#cart-panel" hx-swap="innerHTML">
+                <option th:each="dt : ${discountTypes}" th:value="${dt}"
+                        th:text="${dt.name() == 'AMOUNT' ? 'Fixed' : (dt.name() == 'PERCENT' ? 'Percent' : 'No discount')}"
+                        th:selected="${cart.discountType == dt}"></option>
+            </select>
+            <input type="number" name="discountValue" min="0" step="0.01"
+                   th:value="${cart.discountType.name() == 'NONE' ? '' : cart.discountValue}"
+                   th:disabled="${cart.discountType.name() == 'NONE'}"
+                   class="input num h-10 min-w-0 flex-1"
+                   th:placeholder="${cart.discountType.name() == 'PERCENT' ? '0' : '0.00'}"
+                   aria-label="Discount value"
+                   th:attr="hx-post=@{/pos/cart/discount}" hx-trigger="input changed delay:300ms"
+                   hx-target="#cart-panel" hx-swap="innerHTML"
+                   hx-include="select[name='discountType']">
+        </div>
+
+        <div class="flex items-baseline justify-between border-t border-slate-200 pt-3">
+            <span class="text-sm text-slate-500">Total</span>
+            <span class="text-xl font-semibold tabular-nums text-slate-900" th:text="${@fmt.money(cart.total)}">0.00</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+            <button type="button" class="segment"
+                    th:classappend="${cart.paymentMethod.name() == 'CASH'} ? 'segment-on' : 'segment-off'"
+                    th:attr="hx-post=@{/pos/cart/payment/CASH}" hx-target="#cart-panel" hx-swap="innerHTML">
+                <svg th:replace="~{fragments/icons :: banknote('h-5 w-5')}"></svg>
+                Cash
+            </button>
+            <button type="button" class="segment"
+                    th:classappend="${cart.paymentMethod.name() == 'CARD'} ? 'segment-on' : 'segment-off'"
+                    th:attr="hx-post=@{/pos/cart/payment/CARD}" hx-target="#cart-panel" hx-swap="innerHTML">
+                <svg th:replace="~{fragments/icons :: card('h-5 w-5')}"></svg>
+                Card
+            </button>
+        </div>
+
+        <th:block th:if="${cart.paymentMethod.name() == 'CASH'}">
+            <div>
+                <label class="label" for="cashTendered">Cash tendered</label>
+                <input id="cashTendered" type="number" name="amount" min="0" step="0.01"
+                       th:value="${cart.cashTendered}" class="input num h-11 text-base" placeholder="0.00"
+                       th:attr="hx-post=@{/pos/cart/tender}" hx-trigger="input changed delay:300ms"
+                       hx-target="#cart-panel" hx-swap="innerHTML">
+            </div>
+            <div class="flex items-baseline justify-between text-sm" th:if="${cart.changeDue != null}">
+                <span class="text-slate-500">Change due</span>
+                <span th:if="${cart.changeDue >= 0}"
+                      class="text-base font-semibold tabular-nums text-success-600"
+                      th:text="${@fmt.money(cart.changeDue)}">0.00</span>
+                <span th:if="${cart.changeDue < 0}"
+                      class="text-base font-semibold tabular-nums text-danger-600"
+                      th:text="'Due: ' + ${@fmt.money(cart.changeDue.negate())}">0.00</span>
+            </div>
+        </th:block>
+        <p class="text-xs text-slate-400" th:if="${cart.paymentMethod.name() == 'CARD'}">
+            Amount will be charged on the customer&rsquo;s card at the terminal.
+        </p>
+
+        <button type="button" class="btn btn-primary h-12 w-full text-base font-semibold" data-loading
+                th:disabled="${cart.lines.isEmpty()
+                    or (cart.paymentMethod.name() == 'CASH' and (cart.cashTendered == null or cart.changeDue < 0))}"
+                th:attr="hx-post=@{/pos/checkout}" hx-target="#cart-panel" hx-swap="innerHTML">
+            Complete sale
+        </button>
+    </div>
+</th:block>
+
+</body>
+</html>

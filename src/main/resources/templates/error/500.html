@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Something went wrong', ~{::#page-content})}">
+<head><title>Something went wrong</title></head>
+<body>
+<div id="page-content" class="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+    <p class="text-xl font-semibold text-slate-300">500</p>
+    <div>
+        <h2 class="text-base font-medium text-slate-900">Something went wrong</h2>
+        <p class="mt-1 text-slate-500">An unexpected error occurred. The problem has been logged.</p>
+    </div>
+    <a th:href="@{/}" class="btn btn-primary mt-2">
+        <svg th:replace="~{fragments/icons :: arrow-left('h-4 w-4')}"></svg>
+        Back to start
+    </a>
+</div>
+</body>
+</html>

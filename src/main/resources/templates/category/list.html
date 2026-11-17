@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Categories', ~{::#page-content})}">
+<head><title>Categories</title></head>
+<body>
+<div id="page-content">
+
+    <div class="mb-4 flex items-center justify-between">
+        <p class="text-slate-500">Group products for faster browsing on the register.</p>
+        <a th:href="@{/categories/new}" class="btn btn-primary">
+            <svg th:replace="~{fragments/icons :: plus('h-4 w-4')}"></svg>
+            New category
+        </a>
+    </div>
+
+    <div class="table-wrap" th:if="${!categories.isEmpty()}">
+        <table class="data">
+            <thead>
+            <tr>
+                <th class="th">Name</th>
+                <th class="th num">Products</th>
+                <th class="th">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr class="row-hover" th:each="c : ${categories}">
+                <td class="td font-medium text-slate-800" th:text="${c.name}">Beverages</td>
+                <td class="td num tabular-nums" th:text="${c.productCount}">0</td>
+                <td class="td">
+                    <div class="flex items-center gap-1">
+                        <a th:href="@{/categories/{id}/edit(id=${c.id})}" class="btn btn-ghost btn-sm" title="Edit">
+                            <svg th:replace="~{fragments/icons :: pencil('h-4 w-4')}"></svg>
+                        </a>
+                        <form th:action="@{/categories/{id}/delete(id=${c.id})}" method="post"
+                              th:data-confirm="${'Delete category ' + c.name + '?'}"
+                              data-confirm-title="Delete category">
+                            <button type="submit" class="btn btn-ghost btn-sm text-danger-600 hover:bg-danger-50" title="Delete">
+                                <svg th:replace="~{fragments/icons :: trash('h-4 w-4')}"></svg>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card flex flex-col items-center gap-2 px-4 py-16 text-center" th:unless="${!categories.isEmpty()}">
+        <svg th:replace="~{fragments/icons :: tags('h-8 w-8 text-slate-300')}"></svg>
+        <p class="font-medium text-slate-700">No categories yet.</p>
+        <p class="text-xs text-slate-400">Create categories to organize the product catalog.</p>
+        <a th:href="@{/categories/new}" class="btn btn-primary mt-2">
+            <svg th:replace="~{fragments/icons :: plus('h-4 w-4')}"></svg>
+            New category
+        </a>
+    </div>
+
+</div>
+</body>
+</html>

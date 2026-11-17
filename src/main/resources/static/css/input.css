@@ -1,0 +1,196 @@
+/* ==========================================================================
+   Design tokens — defined ONCE here and in tailwind.config.js
+   - One neutral gray scale (slate), one primary accent (indigo 600)
+   - Semantic colors: success (emerald 600), warning (amber 600), danger (red 600)
+   - Type scale: 12 / 14 / 16 / 20 / 28 px (see tailwind.config.js)
+   - Spacing on a 4px grid; radius 6px inputs/buttons, 8px cards
+   ========================================================================== */
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+    src: url('../fonts/InterVariable.woff2') format('woff2');
+}
+
+:root {
+    --color-primary: #4f46e5;   /* indigo-600 */
+    --color-success: #059669;   /* emerald-600 */
+    --color-warning: #d97706;   /* amber-600 */
+    --color-danger:  #dc2626;   /* red-600    */
+    --color-border:  #e2e8f0;   /* slate-200  */
+    --color-text:    #1e293b;   /* slate-800  */
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+    :focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+    ::placeholder {
+        color: #94a3b8; /* slate-400 */
+    }
+}
+
+@layer components {
+    /* Buttons — 40px default; POS controls use h-11/h-12 for 44px+ touch targets */
+    .btn {
+        @apply inline-flex h-10 select-none items-center justify-center gap-2 rounded-md px-4 text-sm font-medium transition-colors;
+    }
+    .btn:disabled {
+        @apply cursor-not-allowed opacity-50;
+    }
+    .btn-primary {
+        @apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800;
+    }
+    .btn-secondary {
+        @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100;
+    }
+    .btn-danger {
+        @apply bg-danger-600 text-white hover:bg-danger-700 active:bg-danger-800;
+    }
+    .btn-ghost {
+        @apply text-slate-500 hover:bg-slate-100 hover:text-slate-800;
+    }
+    .btn-sm {
+        @apply h-9 px-3 text-xs;
+    }
+
+    /* Form fields — labels above inputs, inline errors */
+    .label {
+        @apply mb-1.5 block text-sm font-medium text-slate-700;
+    }
+    .input {
+        @apply h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/25 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400;
+    }
+    textarea.input {
+        @apply h-auto py-2.5;
+    }
+    .field-error {
+        @apply mt-1.5 block text-xs text-danger-600;
+    }
+    .hint {
+        @apply mt-1.5 block text-xs text-slate-400;
+    }
+
+    /* Surfaces */
+    .card {
+        @apply rounded-lg border border-slate-200 bg-white;
+    }
+    .card-header {
+        @apply flex items-center justify-between border-b border-slate-200 px-4 py-3;
+    }
+
+    /* Badges — low stock is a badge, not just red text */
+    .badge {
+        @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium;
+    }
+    .badge-success { @apply bg-success-50 text-success-700; }
+    .badge-warning { @apply bg-warning-50 text-warning-700; }
+    .badge-danger  { @apply bg-danger-50 text-danger-700; }
+    .badge-neutral { @apply bg-slate-100 text-slate-600; }
+    .badge-primary { @apply bg-primary-50 text-primary-700; }
+
+    /* Tables — sticky header, hover rows, zebra OFF, right-aligned numerics */
+    .table-wrap {
+        @apply card overflow-auto;
+    }
+    table.data {
+        @apply w-full border-separate border-spacing-0 text-sm;
+    }
+    .th {
+        @apply sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+    }
+    .td {
+        @apply border-b border-slate-100 px-4 py-2.5 align-middle text-slate-700;
+    }
+    tr.row-hover:hover .td {
+        @apply bg-slate-50;
+    }
+    .num {
+        @apply text-right tabular-nums;
+    }
+
+    /* Segmented control (payment method) */
+    .segment {
+        @apply flex h-11 flex-1 items-center justify-center gap-2 rounded-md border text-sm font-medium;
+    }
+    .segment-off {
+        @apply border-slate-300 bg-white text-slate-600 hover:bg-slate-50;
+    }
+    .segment-on {
+        @apply border-primary-600 bg-primary-600 text-white;
+    }
+}
+
+/* Toasts (plain CSS so JS-created nodes always look right) */
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-left-width: 3px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-text);
+    animation: toast-in 0.18s ease-out;
+}
+.toast-success { border-left-color: var(--color-success); }
+.toast-error   { border-left-color: var(--color-danger); }
+.toast-info    { border-left-color: var(--color-primary); }
+.toast button  {
+    margin-left: auto;
+    color: #94a3b8;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+}
+.toast button:hover { color: #475569; }
+.toast.hide { opacity: 0; transition: opacity 0.2s ease; }
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Spinner for button loading states */
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 9999px;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Print — 80mm thermal receipt */
+@page {
+    size: 80mm auto;
+    margin: 4mm;
+}
+@media print {
+    body {
+        background: #ffffff !important;
+    }
+    .no-print {
+        display: none !important;
+    }
+    .receipt {
+        width: 72mm !important;
+    }
+}

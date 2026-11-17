@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head><title>pager</title></head>
+<body>
+<th:block th:fragment="pager(page, baseUrl)">
+    <nav th:if="${page.totalPages > 1}" class="flex items-center justify-between px-1 py-3">
+        <p class="text-xs text-slate-500">
+            Showing <span class="tabular-nums" th:text="${page.number * page.size + 1}">1</span>
+            &ndash;<span class="tabular-nums" th:text="${page.number * page.size + page.numberOfElements}">20</span>
+            of <span class="tabular-nums" th:text="${page.totalElements}">0</span>
+        </p>
+        <div class="flex items-center gap-1.5">
+            <a th:href="@{${baseUrl}(page=${page.number})}"
+               th:classappend="${page.first} ? 'pointer-events-none opacity-40'"
+               class="btn btn-secondary btn-sm">
+                <svg th:replace="~{fragments/icons :: chevron-left('h-4 w-4')}"></svg>
+                Prev
+            </a>
+            <span class="px-2 text-xs text-slate-500 tabular-nums"
+                  th:text="${page.number + 1} + ' / ' + ${page.totalPages}">1 / 5</span>
+            <a th:href="@{${baseUrl}(page=${page.number + 2})}"
+               th:classappend="${page.last} ? 'pointer-events-none opacity-40'"
+               class="btn btn-secondary btn-sm">
+                Next
+                <svg th:replace="~{fragments/icons :: chevron-right('h-4 w-4')}"></svg>
+            </a>
+        </div>
+    </nav>
+</th:block>
+</body>
+</html>

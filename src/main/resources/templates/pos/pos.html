@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Register', ~{::#page-content})}">
+<head><title>Register</title></head>
+<body>
+<div id="page-content" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
+
+    <!-- Left: scan box + product results grid -->
+    <section class="min-w-0">
+        <form class="relative mb-2" th:action="@{/pos/scan}" method="post" onsubmit="return false;">
+            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <svg th:replace="~{fragments/icons :: barcode('h-5 w-5')}"></svg>
+            </span>
+            <input id="scan-input" type="text" name="q" autocomplete="off" autofocus
+                   class="input h-12 pl-11 text-base"
+                   placeholder="Scan barcode or search products&hellip;"
+                   th:attr="hx-get=@{/pos/search}" hx-trigger="input changed delay:300ms, search"
+                   hx-target="#results-area" hx-swap="innerHTML">
+        </form>
+        <p class="mb-4 text-xs text-slate-400">Press <kbd class="rounded border border-slate-300 bg-white px-1 text-xs">Enter</kbd> on a scanned barcode or SKU to add it straight to the cart.</p>
+
+        <div id="results-area">
+            <th:block th:replace="~{pos/fragments :: results}"></th:block>
+        </div>
+    </section>
+
+    <!-- Right: sticky cart panel -->
+    <aside class="min-w-0">
+        <div id="cart-panel"
+             class="card sticky top-20 flex max-h-[calc(100vh-6rem)] flex-col overflow-hidden">
+            <th:block th:replace="~{pos/fragments :: cartInner}"></th:block>
+        </div>
+    </aside>
+    <script>
+    (function () {
+        // Enter in the scan box posts /pos/scan (exact match => added to cart).
+        var input = document.getElementById('scan-input');
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                htmx.ajax('POST', '/pos/scan', {target: '#results-area', swap: 'innerHTML', values: {q: input.value}})
+                    .then(function () {
+                        input.value = '';
+                        input.focus();
+                    });
+            }
+        });
+        // Keep the scan box ready after every results swap (scanner workflow).
+        document.body.addEventListener('htmx:afterSwap', function (e) {
+            if (e.detail && e.detail.target && e.detail.target.id === 'results-area') {
+                var s = document.getElementById('scan-input');
+                if (s) {
+                    s.focus();
+                }
+            }
+        });
+    })();
+</script>
+</div>
+    
+
+
+</body>
+</html>

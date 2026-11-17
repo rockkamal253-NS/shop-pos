@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'Receipt #' + ${sale.id}">Receipt</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+<main class="mx-auto my-8 w-[320px]">
+
+    <div class="receipt card bg-white p-5 text-xs leading-5">
+        <div class="text-center">
+            <p class="text-base font-semibold tracking-wide text-slate-900" th:text="${shopName}">Shop</p>
+            <p class="mt-0.5 text-slate-400">Sales receipt</p>
+        </div>
+
+        <div class="my-3 border-t border-dashed border-slate-300"></div>
+
+        <div class="space-y-0.5 text-slate-500">
+            <div class="flex justify-between"><span>Receipt #</span><span class="tabular-nums text-slate-700" th:text="${sale.id}">1</span></div>
+            <div class="flex justify-between"><span>Date</span><span class="text-slate-700" th:text="${@fmt.dateTime(sale.createdAt)}">date</span></div>
+            <div class="flex justify-between"><span>Cashier</span><span class="text-slate-700" th:text="${sale.cashier.displayName}">cashier</span></div>
+            <div class="flex justify-between" th:if="${sale.isVoided()}">
+                <span class="font-semibold text-danger-600">VOIDED</span>
+                <span th:text="${@fmt.dateTime(sale.voidedAt)}"></span>
+            </div>
+        </div>
+
+        <div class="my-3 border-t border-dashed border-slate-300"></div>
+
+        <table class="w-full">
+            <thead>
+            <tr class="text-left text-slate-400">
+                <th class="pb-1 font-medium">Item</th>
+                <th class="pb-1 text-right font-medium">Qty</th>
+                <th class="pb-1 text-right font-medium">Total</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="item : ${sale.items}" class="align-top">
+                <td class="py-0.5 pr-2">
+                    <span class="block text-slate-800" th:text="${item.productName}">Item</span>
+                    <span class="block text-slate-400 tabular-nums"
+                          th:text="${@fmt.moneyPlain(item.unitPrice)} + ' x ' + ${item.quantity} + '  (' + ${item.productSku} + ')'">0.00</span>
+                </td>
+                <td class="py-0.5 text-right tabular-nums text-slate-700" th:text="${item.quantity}">1</td>
+                <td class="py-0.5 text-right tabular-nums text-slate-800"
+                    th:text="${@fmt.number(item.lineTotal)}">0.00</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="my-3 border-t border-dashed border-slate-300"></div>
+
+        <div class="space-y-1">
+            <div class="flex justify-between text-slate-500">
+                <span>Subtotal</span>
+                <span class="tabular-nums text-slate-700" th:text="${@fmt.money(sale.subtotal)}">0.00</span>
+            </div>
+            <div class="flex justify-between text-slate-500" th:if="${sale.discountAmount.signum() > 0}">
+                <span th:switch="${sale.discountType.name()}">
+                    <span th:case="'PERCENT'" th:text="'Discount (' + ${@fmt.moneyPlain(sale.discountValue)} + '%)'">Discount</span>
+                    <span th:case="'AMOUNT'">Discount</span>
+                    <span th:case="*">Discount</span>
+                </span>
+                <span class="tabular-nums text-danger-600" th:text="'-' + ${@fmt.money(sale.discountAmount)}">0.00</span>
+            </div>
+            <div class="flex justify-between border-t border-dashed border-slate-300 pt-2 text-sm font-semibold text-slate-900">
+                <span>Total</span>
+                <span class="tabular-nums" th:text="${@fmt.money(sale.total)}">0.00</span>
+            </div>
+            <div class="flex justify-between pt-1 text-slate-500">
+                <span>Payment</span>
+                <span class="text-slate-700" th:text="${sale.paymentMethod.name() == 'CASH'} ? 'Cash' : 'Card'">Cash</span>
+            </div>
+            <div class="flex justify-between text-slate-500" th:if="${sale.cashTendered != null}">
+                <span>Cash tendered</span>
+                <span class="tabular-nums text-slate-700" th:text="${@fmt.money(sale.cashTendered)}">0.00</span>
+            </div>
+            <div class="flex justify-between text-slate-500" th:if="${sale.changeDue != null}">
+                <span>Change</span>
+                <span class="tabular-nums text-slate-700" th:text="${@fmt.money(sale.changeDue)}">0.00</span>
+            </div>
+        </div>
+
+        <div class="my-3 border-t border-dashed border-slate-300"></div>
+        <p class="text-center text-slate-400">Thank you for shopping with us!</p>
+    </div>
+
+    <div class="no-print mt-4 flex justify-center gap-2">
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+            <svg th:replace="~{fragments/icons :: printer('h-4 w-4')}"></svg>
+            Print receipt
+        </button>
+        <a th:href="${isAdmin} ? @{/sales/{id}(id=${sale.id})} : @{/pos}" class="btn btn-secondary">
+            <svg th:replace="~{fragments/icons :: arrow-left('h-4 w-4')}"></svg>
+            <span th:text="${isAdmin} ? 'Sale details' : 'Back to register'">Back</span>
+        </a>
+    </div>
+</main>
+
+<script>
+    window.addEventListener('load', function () {
+        if (new URLSearchParams(window.location.search).get('print') === '1') {
+            window.print();
+        }
+    });
+</script>
+</body>
+</html>

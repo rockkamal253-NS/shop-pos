@@ -1,0 +1,249 @@
+package com.example.shoppos.sale;
+
+import com.example.shoppos.common.web.BusinessRuleException;
+import com.example.shoppos.inventory.MovementType;
+import com.example.shoppos.inventory.StockMovement;
+import com.example.shoppos.inventory.StockMovementRepository;
+import com.example.shoppos.product.Category;
+import com.example.shoppos.product.CategoryRepository;
+import com.example.shoppos.product.Product;
+import com.example.shoppos.product.ProductRepository;
+import com.example.shoppos.user.Role;
+import com.example.shoppos.user.User;
+import com.example.shoppos.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Core business rules of the register: stock checks, totals, change calculation,
+ * stock decrement + movement records, and voiding. Runs against H2 (test profile)
+ * with Flyway migrations; every test rolls back.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@ActiveProfiles("test")
+@Transactional
+class SaleServiceTest {
+
+    @Autowired
+    private SaleService sales;
+
+    @Autowired
+    private ProductRepository products;
+
+    @Autowired
+    private CategoryRepository categories;
+
+    @Autowired
+    private UserRepository users;
+
+    @Autowired
+    private StockMovementRepository movements;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private static final AtomicInteger SEQ = new AtomicInteger();
+
+    private Category category;
+    private User cashier;
+
+    @BeforeEach
+    void setUp() {
+        category = categories.save(new Category("Test Cat " + SEQ.incrementAndGet()));
+        cashier = users.save(new User("cashier_" + SEQ.incrementAndGet(),
+                passwordEncoder.encode("x"), "Test Cashier", Role.CASHIER));
+    }
+
+    private Product product(String name, String sell, int stock) {
+        int n = SEQ.incrementAndGet();
+        return products.save(new Product(name, "SKU-" + n, "BC-" + n, category,
+                new BigDecimal("1.00"), new BigDecimal(sell), stock, 5, true));
+    }
+
+    private Cart cartOf(Product p, int qty) {
+        Cart cart = new Cart();
+        cart.getItems().put(p.getId(), qty);
+        cart.setCashTendered(new BigDecimal("9999.00")); // plenty of cash unless a test overrides it
+        return cart;
+    }
+
+    @Test
+    void completingSaleDecrementsStockAndWritesMovements() {
+        Product p = product("Green Tea", "10.00", 10);
+
+        Sale sale = sales.completeSale(cartOf(p, 3), cashier);
+
+        assertEquals(SaleStatus.COMPLETED, sale.getStatus());
+        assertEquals("30.00", sale.getTotal().toPlainString());
+        assertEquals(7, products.findById(p.getId()).orElseThrow().getStockQuantity());
+
+        List<StockMovement> history = movements.findByProductIdOrderByCreatedAtDesc(p.getId(), Pageable.unpaged()).getContent();
+        assertEquals(1, history.size());
+        assertEquals(MovementType.SALE, history.get(0).getType());
+        assertEquals(-3, history.get(0).getQuantityDelta());
+        assertEquals(7, history.get(0).getStockAfter());
+        assertTrue(history.get(0).getReference().startsWith("SALE #"));
+    }
+
+    @Test
+    void saleSnapshotsNameAndPriceAtTimeOfSale() {
+        Product p = product("Orange Soda", "12.50", 5);
+        Sale sale = sales.completeSale(cartOf(p, 2), cashier);
+
+        assertEquals(1, sale.getItems().size());
+        SaleItem item = sale.getItems().get(0);
+        assertEquals("Orange Soda", item.getProductName());
+        assertEquals("12.50", item.getUnitPrice().toPlainString());
+        assertEquals("25.00", item.getLineTotal().toPlainString());
+
+        // Rename the product afterwards — the snapshot must not change.
+        p.setName("Renamed Soda");
+        products.saveAndFlush(p);
+        Sale reloaded = sales.get(sale.getId());
+        assertEquals("Orange Soda", reloaded.getItems().get(0).getProductName());
+    }
+
+    @Test
+    void saleRejectedWhenInsufficientStock() {
+        Product p = product("Chewing Gum", "3.00", 2);
+
+        InsufficientStockException e = assertThrows(InsufficientStockException.class,
+                () -> sales.completeSale(cartOf(p, 5), cashier));
+        assertTrue(e.getIssues().get(0).contains("requested 5"));
+
+        // Nothing was written: stock unchanged, no movement.
+        assertEquals(2, products.findById(p.getId()).orElseThrow().getStockQuantity());
+        assertTrue(movements.findByProductIdOrderByCreatedAtDesc(p.getId(), Pageable.unpaged()).isEmpty());
+    }
+
+    @Test
+    void saleRejectedWhenCartEmpty() {
+        assertThrows(BusinessRuleException.class, () -> sales.completeSale(new Cart(), cashier));
+    }
+
+    @Test
+    void cashSaleCalculatesChangeDue() {
+        Product p = product("Bread", "23.75", 10);
+        Cart cart = cartOf(p, 2);
+        cart.setPaymentMethod(PaymentMethod.CASH);
+        cart.setCashTendered(new BigDecimal("60.00"));
+
+        Sale sale = sales.completeSale(cart, cashier);
+        assertEquals("47.50", sale.getTotal().toPlainString());
+        assertEquals("60.00", sale.getCashTendered().toPlainString());
+        assertEquals("12.50", sale.getChangeDue().toPlainString());
+    }
+
+    @Test
+    void cashSaleRejectedWhenTenderedBelowTotal() {
+        Product p = product("Bread", "23.75", 10);
+        Cart cart = cartOf(p, 2);
+        cart.setPaymentMethod(PaymentMethod.CASH);
+        cart.setCashTendered(new BigDecimal("40.00"));
+
+        assertThrows(BusinessRuleException.class, () -> sales.completeSale(cart, cashier));
+        assertEquals(10, products.findById(p.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void cardSaleHasNoCashFields() {
+        Product p = product("Battery", "18.00", 10);
+        Cart cart = cartOf(p, 1);
+        cart.setPaymentMethod(PaymentMethod.CARD);
+
+        Sale sale = sales.completeSale(cart, cashier);
+        assertEquals("18.00", sale.getTotal().toPlainString());
+        assertNull(sale.getCashTendered());
+        assertNull(sale.getChangeDue());
+    }
+
+    @Test
+    void amountDiscountIsApplied() {
+        Product p = product("Coffee Pack", "55.00", 10);
+        Cart cart = cartOf(p, 2);
+        cart.setDiscountType(DiscountType.AMOUNT);
+        cart.setDiscountValue(new BigDecimal("5.00"));
+
+        Sale sale = sales.completeSale(cart, cashier);
+        assertEquals("110.00", sale.getSubtotal().toPlainString());
+        assertEquals("5.00", sale.getDiscountAmount().toPlainString());
+        assertEquals("105.00", sale.getTotal().toPlainString());
+    }
+
+    @Test
+    void percentDiscountIsApplied() {
+        Product p = product("Cooking Pot", "80.00", 10);
+        Cart cart = cartOf(p, 1);
+        cart.setDiscountType(DiscountType.PERCENT);
+        cart.setDiscountValue(new BigDecimal("10"));
+
+        Sale sale = sales.completeSale(cart, cashier);
+        assertEquals("8.00", sale.getDiscountAmount().toPlainString());
+        assertEquals("72.00", sale.getTotal().toPlainString());
+    }
+
+    @Test
+    void voidSaleRestoresStockAndWritesMovements() {
+        Product p = product("Instant Noodles", "7.50", 12);
+        Sale sale = sales.completeSale(cartOf(p, 4), cashier);
+        assertEquals(8, products.findById(p.getId()).orElseThrow().getStockQuantity());
+
+        User admin = users.save(new User("admin_" + SEQ.incrementAndGet(),
+                passwordEncoder.encode("x"), "Test Admin", Role.ADMIN));
+        sales.voidSale(sale.getId(), admin);
+
+        Sale voided = sales.get(sale.getId());
+        assertEquals(SaleStatus.VOIDED, voided.getStatus());
+        assertEquals(admin.getId(), voided.getVoidedBy().getId());
+        assertEquals(12, products.findById(p.getId()).orElseThrow().getStockQuantity());
+
+        List<StockMovement> history = movements.findByProductIdOrderByCreatedAtDesc(p.getId(), Pageable.unpaged()).getContent();
+        assertEquals(2, history.size());
+        assertEquals(MovementType.VOID_RESTORE, history.get(0).getType());
+        assertEquals(4, history.get(0).getQuantityDelta());
+        assertEquals(12, history.get(0).getStockAfter());
+    }
+
+    @Test
+    void voidSaleIsRejectedTwice() {
+        Product p = product("Soap", "9.00", 10);
+        Sale sale = sales.completeSale(cartOf(p, 1), cashier);
+        User admin = users.save(new User("admin2_" + SEQ.incrementAndGet(),
+                passwordEncoder.encode("x"), "Admin Two", Role.ADMIN));
+
+        sales.voidSale(sale.getId(), admin);
+        assertThrows(BusinessRuleException.class, () -> sales.voidSale(sale.getId(), admin));
+    }
+
+    @Test
+    void multiLineSaleTotalsEveryLine() {
+        Product a = product("Item A", "10.00", 10);
+        Product b = product("Item B", "2.50", 10);
+        Cart cart = new Cart();
+        cart.getItems().put(a.getId(), 2);
+        cart.getItems().put(b.getId(), 4);
+        cart.setCashTendered(new BigDecimal("9999.00"));
+
+        Sale sale = sales.completeSale(cart, cashier);
+        assertEquals("30.00", sale.getSubtotal().toPlainString());
+        assertEquals(2, sale.getItems().size());
+        assertEquals(6, sale.getItemCount());
+        assertEquals(8, products.findById(a.getId()).orElseThrow().getStockQuantity());
+        assertEquals(6, products.findById(b.getId()).orElseThrow().getStockQuantity());
+    }
+}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout('Sales history', ~{::#page-content})}">
+<head><title>Sales history</title></head>
+<body>
+<div id="page-content">
+
+    <!-- Filters -->
+    <form th:action="@{/sales}" method="get" class="card mb-4 flex flex-wrap items-end gap-3 p-4"
+          th:object="${filter}">
+        <div>
+            <label class="label" for="from">From</label>
+            <input type="date" id="from" class="input h-10" th:field="*{from}">
+        </div>
+        <div>
+            <label class="label" for="to">To</label>
+            <input type="date" id="to" class="input h-10" th:field="*{to}">
+        </div>
+        <div>
+            <label class="label" for="cashierId">Cashier</label>
+            <select id="cashierId" class="input h-10 w-44" th:field="*{cashierId}">
+                <option value="">All cashiers</option>
+                <option th:each="c : ${cashiers}" th:value="${c.id}" th:text="${c.displayName}"></option>
+            </select>
+        </div>
+        <div class="flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                <svg th:replace="~{fragments/icons :: search('h-4 w-4')}"></svg>
+                Apply filters
+            </button>
+            <a th:href="@{/sales}" class="btn btn-secondary">Clear</a>
+        </div>
+    </form>
+
+    <div class="table-wrap max-h-[60vh]" th:if="${page.hasContent()}">
+        <table class="data">
+            <thead>
+            <tr>
+                <th class="th">Receipt #</th>
+                <th class="th">Date</th>
+                <th class="th">Cashier</th>
+                <th class="th num">Items</th>
+                <th class="th">Payment</th>
+                <th class="th num">Total</th>
+                <th class="th">Status</th>
+                <th class="th">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr class="row-hover" th:each="s : ${page.content}">
+                <td class="td font-medium tabular-nums text-slate-800" th:text="${'#' + s.id}">#1</td>
+                <td class="td whitespace-nowrap text-slate-500" th:text="${@fmt.dateTime(s.createdAt)}">date</td>
+                <td class="td text-slate-700" th:text="${s.cashier.displayName}">Cashier</td>
+                <td class="td num tabular-nums" th:text="${s.itemCount}">0</td>
+                <td class="td">
+                    <span class="badge badge-neutral"
+                          th:text="${s.paymentMethod.name() == 'CASH'} ? 'Cash' : 'Card'">Cash</span>
+                </td>
+                <td class="td num font-medium" th:text="${@fmt.money(s.total)}">0.00</td>
+                <td class="td">
+                    <span th:if="${s.isVoided()}" class="badge badge-danger">Voided</span>
+                    <span th:unless="${s.isVoided()}" class="badge badge-success">Completed</span>
+                </td>
+                <td class="td">
+                    <div class="flex items-center justify-end gap-1">
+                        <a th:href="@{/sales/{id}(id=${s.id})}" class="btn btn-ghost btn-sm" title="Details">
+                            <svg th:replace="~{fragments/icons :: eye('h-4 w-4')}"></svg>
+                        </a>
+                        <a th:href="@{/sales/{id}/receipt(id=${s.id})}" target="_blank" class="btn btn-ghost btn-sm" title="Receipt">
+                            <svg th:replace="~{fragments/icons :: receipt('h-5 w-5')}"></svg>
+                        </a>
+                        <form th:unless="${s.isVoided()}" th:action="@{/sales/{id}/void(id=${s.id})}" method="post"
+                              th:data-confirm="${'Void sale #' + s.id + '? Stock will be restored for all items.'}"
+                              data-confirm-title="Void sale">
+                            <button type="submit" class="btn btn-ghost btn-sm text-danger-600 hover:bg-danger-50" title="Void sale">
+                                <svg th:replace="~{fragments/icons :: refresh('h-4 w-4')}"></svg>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card flex flex-col items-center gap-2 px-4 py-16 text-center" th:unless="${page.hasContent()}">
+        <svg th:replace="~{fragments/icons :: history('h-8 w-8 text-slate-300')}"></svg>
+        <p class="font-medium text-slate-700">No sales found.</p>
+        <p class="text-xs text-slate-400">Try widening the date range or clearing the filters.</p>
+        <a th:href="@{/pos}" class="btn btn-primary mt-2">
+            <svg th:replace="~{fragments/icons :: cart('h-5 w-5')}"></svg>
+            Open register
+        </a>
+    </div>
+
+    <th:block th:with="pageUrl=@{/sales(from=${filter.from}, to=${filter.to}, cashierId=${filter.cashierId})}">
+        <th:block th:replace="~{fragments/pager :: pager(${page}, ${pageUrl})}"></th:block>
+    </th:block>
+
+</div>
+</body>
+</html>
