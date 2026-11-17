@@ -127,4 +127,26 @@ class FormValidationTest {
 
         assertEquals(countBefore, products.count());
     }
+
+    @Test
+    void postProductsWithOversizedSellPriceReturnsFormViewWithFieldErrorAndCreatesNoProduct() throws Exception {
+        long countBefore = products.count();
+
+        mockMvcProduct.perform(post("/products")
+                .principal(new UsernamePasswordAuthenticationToken(adminPrincipal, null, adminPrincipal.getAuthorities()))
+                .param("name", "Oversized Price Item")
+                .param("sku", "OVER-PRICE-SKU")
+                .param("barcode", "OVER-PRICE-BC")
+                .param("categoryId", category.getId().toString())
+                .param("costPrice", "5.00")
+                .param("sellPrice", "99999999999")
+                .param("stockQuantity", "10")
+                .param("lowStockThreshold", "2")
+                .param("active", "true"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("product/form"))
+                .andExpect(model().attributeHasFieldErrors("form", "sellPrice"));
+
+        assertEquals(countBefore, products.count());
+    }
 }

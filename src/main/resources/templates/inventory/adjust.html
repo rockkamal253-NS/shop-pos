@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
       th:replace="~{fragments/layout :: layout('Adjust stock', ~{::#page-content})}">
 <head><title>Adjust stock</title></head>
@@ -35,7 +35,7 @@
                 <div th:unless="${selected}">
                     <label class="label" th:for="productId">Product</label>
                     <select class="input" th:field="*{productId}"
-                            th:errorclass="border-danger-500 focus:border-danger-500 focus:ring-danger-500/25">
+                            th:classappend="${#fields.hasErrors('productId')} ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/25'">
                         <option value="">Select a product&hellip;</option>
                         <option th:each="p : ${products}" th:value="${p.id}"
                                 th:text="${p.name + ' (' + p.sku + ')'}"></option>
@@ -82,14 +82,14 @@
                 <div>
                     <label class="label" th:for="quantity">Quantity</label>
                     <input class="input num" type="number" min="1" th:field="*{quantity}"
-                           th:errorclass="border-danger-500 focus:border-danger-500 focus:ring-danger-500/25">
+                           th:classappend="${#fields.hasErrors('quantity')} ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/25'">
                     <span class="field-error" th:if="${#fields.hasErrors('quantity')}" th:errors="*{quantity}"></span>
                 </div>
 
                 <div>
                     <label class="label" th:for="note">Reason</label>
                     <textarea class="input" rows="2" th:field="*{note}"
-                              th:errorclass="border-danger-500 focus:border-danger-500 focus:ring-danger-500/25"
+                              th:classappend="${#fields.hasErrors('note')} ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/25'"
                               placeholder="e.g. Weekly delivery from supplier, damaged in transit, shelf recount&hellip;"></textarea>
                     <span class="field-error" th:if="${#fields.hasErrors('note')}" th:errors="*{note}"></span>
                 </div>
