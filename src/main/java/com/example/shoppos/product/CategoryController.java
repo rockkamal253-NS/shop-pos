@@ -1,6 +1,7 @@
 package com.example.shoppos.product;
 
 import com.example.shoppos.common.web.DuplicateValueException;
+import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -34,7 +35,7 @@ public class CategoryController {
     }
 
     @PostMapping
-    public String create(@ModelAttribute("form") CategoryForm form,
+    public String create(@Valid @ModelAttribute("form") CategoryForm form,
                          BindingResult binding,
                          Model model,
                          RedirectAttributes ra) {
@@ -63,7 +64,7 @@ public class CategoryController {
 
     @PostMapping("/{id}")
     public String update(@PathVariable Long id,
-                         @ModelAttribute("form") CategoryForm form,
+                         @Valid @ModelAttribute("form") CategoryForm form,
                          BindingResult binding,
                          RedirectAttributes ra) {
         if (binding.hasErrors()) {

@@ -3,6 +3,7 @@ package com.example.shoppos.product;
 import com.example.shoppos.common.web.DuplicateValueException;
 import com.example.shoppos.user.CurrentUserService;
 import com.example.shoppos.user.UserPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -49,7 +50,7 @@ public class ProductController {
     }
 
     @PostMapping
-    public String create(@ModelAttribute("form") ProductForm form,
+    public String create(@Valid @ModelAttribute("form") ProductForm form,
                          BindingResult binding,
                          @AuthenticationPrincipal UserPrincipal principal,
                          Model model,
@@ -94,7 +95,7 @@ public class ProductController {
 
     @PostMapping("/{id}")
     public String update(@PathVariable Long id,
-                         @ModelAttribute("form") ProductForm form,
+                         @Valid @ModelAttribute("form") ProductForm form,
                          BindingResult binding,
                          Model model,
                          RedirectAttributes ra) {

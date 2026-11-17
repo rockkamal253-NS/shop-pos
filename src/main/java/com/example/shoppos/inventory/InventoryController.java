@@ -5,6 +5,7 @@ import com.example.shoppos.product.Product;
 import com.example.shoppos.product.ProductRepository;
 import com.example.shoppos.user.CurrentUserService;
 import com.example.shoppos.user.UserPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -51,14 +52,14 @@ public class InventoryController {
     }
 
     @PostMapping("/adjust")
-    public String adjust(@ModelAttribute("form") StockAdjustForm form,
+    public String adjust(@Valid @ModelAttribute("form") StockAdjustForm form,
                          BindingResult binding,
                          @AuthenticationPrincipal UserPrincipal principal,
                          Model model,
                          RedirectAttributes ra) {
         if (binding.hasErrors()) {
             model.addAttribute("products", products.findAll());
-            model.addAttribute("selected", products.findById(form.getProductId() == null ? -1L : form.getProductId()).orElse(null));
+            model.addAttribute("selected", form.getProductId() != null ? products.findById(form.getProductId()).orElse(null) : null);
             return "inventory/adjust";
         }
         try {
@@ -69,7 +70,7 @@ public class InventoryController {
         } catch (BusinessRuleException e) {
             model.addAttribute("adjustError", e.getMessage());
             model.addAttribute("products", products.findAll());
-            model.addAttribute("selected", products.findById(form.getProductId()).orElse(null));
+            model.addAttribute("selected", form.getProductId() != null ? products.findById(form.getProductId()).orElse(null) : null);
             return "inventory/adjust";
         }
     }
