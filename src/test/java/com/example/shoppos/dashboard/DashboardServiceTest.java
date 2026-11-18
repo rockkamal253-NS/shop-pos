@@ -4,6 +4,8 @@ import com.example.shoppos.product.Product;
 import com.example.shoppos.product.ProductRepository;
 import com.example.shoppos.sale.Cart;
 import com.example.shoppos.sale.Sale;
+import com.example.shoppos.sale.SaleItemRepository;
+import com.example.shoppos.sale.SaleRepository;
 import com.example.shoppos.sale.SaleService;
 import com.example.shoppos.user.Role;
 import com.example.shoppos.user.User;
@@ -17,6 +19,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +36,12 @@ class DashboardServiceTest {
 
     @Autowired
     private DashboardService dashboard;
+
+    @Autowired
+    private SaleRepository sales;
+
+    @Autowired
+    private SaleItemRepository saleItems;
 
     @Autowired
     private ProductRepository products;
@@ -92,5 +104,28 @@ class DashboardServiceTest {
         DashboardService.DashboardStats stats = dashboard.stats();
         assertEquals("0", stats.todayRevenue().unscaledValue().toString());
         assertEquals(0, stats.todayTransactions());
+    }
+
+    @Test
+    void statsUsesConfiguredClock() {
+        Product a = product("Clock Product", "20.00", 10, 5);
+        Cart cart = new Cart();
+        cart.getItems().put(a.getId(), 1);
+        cart.setCashTendered(new BigDecimal("100.00"));
+        saleService.completeSale(cart, cashier);
+
+        // Fixed clock in the future (3 days ahead)
+        Clock futureClock = Clock.fixed(Instant.now().plus(3, ChronoUnit.DAYS), ZoneId.of("Africa/Cairo"));
+        DashboardService serviceWithFutureClock = new DashboardService(sales, saleItems, products, futureClock);
+
+        DashboardService.DashboardStats futureStats = serviceWithFutureClock.stats();
+        // Today's sale should not appear on the dashboard when viewed through future clock
+        assertEquals(0, futureStats.todayTransactions());
+        assertEquals("0", futureStats.todayRevenue().unscaledValue().toString());
+
+        // And standard dashboard (configured clock) sees today's sale
+        DashboardService.DashboardStats currentStats = dashboard.stats();
+        assertEquals(1, currentStats.todayTransactions());
+        assertEquals("20.00", currentStats.todayRevenue().toPlainString());
     }
 }

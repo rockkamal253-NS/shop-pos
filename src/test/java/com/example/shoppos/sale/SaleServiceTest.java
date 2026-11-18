@@ -15,8 +15,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,10 +40,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
 @Transactional
+@WithMockUser(roles = "ADMIN")
 class SaleServiceTest {
 
     @Autowired
     private SaleService sales;
+
+    @Autowired
+    private SaleRepository saleRepository;
+
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
     @Autowired
     private ProductRepository products;
@@ -257,5 +267,36 @@ class SaleServiceTest {
         assertEquals("Invalid quantity in cart.", ex.getMessage());
         assertEquals(0, sales.search(null, null, null, 0).getTotalElements());
         assertEquals(10, products.findById(p.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    @WithMockUser(roles = "CASHIER")
+    void voidSaleByCashierThrowsAccessDenied() {
+        Product p = product("Item Protected", "10.00", 10);
+        Sale sale = sales.completeSale(cartOf(p, 1), cashier);
+        assertThrows(AccessDeniedException.class, () -> sales.voidSale(sale.getId(), cashier));
+    }
+
+    @Test
+    void staleSaleOptimisticLockThrowsException() {
+        Product p = product("Optimistic Item", "10.00", 10);
+        Sale sale = sales.completeSale(cartOf(p, 1), cashier);
+        assertEquals(0L, sale.getVersion());
+
+        // Evict/detach the sale from the persistence context to keep version 0
+        entityManager.detach(sale);
+
+        User admin = users.save(new User("admin_opt_" + SEQ.incrementAndGet(),
+                passwordEncoder.encode("x"), "Test Admin", Role.ADMIN));
+        sales.voidSale(sale.getId(), admin);
+
+        Sale updated = sales.get(sale.getId());
+        assertEquals(1L, updated.getVersion());
+
+        // Detached 'sale' has version 0 in memory; attempting to save/merge it causes optimistic lock failure
+        sale.setStatus(SaleStatus.COMPLETED);
+        assertThrows(OptimisticLockingFailureException.class, () -> {
+            saleRepository.saveAndFlush(sale);
+        });
     }
 }

@@ -10,6 +10,7 @@ import com.example.shoppos.user.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,6 +104,7 @@ public class SaleService {
     }
 
     /** ADMIN: undo a sale — restores stock and writes a VOID_RESTORE movement per item. */
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public Sale voidSale(Long saleId, User admin) {
         Sale sale = sales.findWithDetailsById(saleId)
