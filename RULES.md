@@ -41,3 +41,6 @@ Run this only when the task file has a "Browser check" section.
 5. Stop the app when done (kill the process you started). Do not leave it running.
 6. Do not commit screenshots, recordings, or the data/ folder.
 7. If the app fails to start or the browser step is blocked, report it and stop. Do not change config to work around it.
+
+Also follow DB-RULES.md and WORKING-PRINCIPLES.md. If they conflict with a task file, stop and ask.
+
