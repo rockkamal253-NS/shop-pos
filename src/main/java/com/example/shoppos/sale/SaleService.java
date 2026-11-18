@@ -42,6 +42,11 @@ public class SaleService {
         if (cart.isEmpty()) {
             throw new BusinessRuleException("The cart is empty.");
         }
+        for (var entry : cart.getItems().entrySet()) {
+            if (entry.getValue() == null || entry.getValue() < 1) {
+                throw new BusinessRuleException("Invalid quantity in cart.");
+            }
+        }
 
         // 1. Load and validate everything BEFORE writing anything.
         List<Product> sold = new ArrayList<>();

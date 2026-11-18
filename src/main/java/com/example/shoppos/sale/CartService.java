@@ -4,6 +4,8 @@ import com.example.shoppos.common.web.BusinessRuleException;
 import com.example.shoppos.product.Product;
 import com.example.shoppos.product.ProductRepository;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -21,12 +23,21 @@ import java.util.Optional;
 public class CartService {
 
     public static final String SESSION_KEY = "posCart";
+    public static final BigDecimal MAX_AMOUNT = new BigDecimal("9999999.99");
     private static final int MAX_RESULTS = 24;
 
     private final ProductRepository products;
+    private final int maxDiscountPercent;
+
+    @Autowired
+    public CartService(ProductRepository products,
+                       @Value("${app.max-cashier-discount-percent:20}") int maxDiscountPercent) {
+        this.products = products;
+        this.maxDiscountPercent = maxDiscountPercent;
+    }
 
     public CartService(ProductRepository products) {
-        this.products = products;
+        this(products, 20);
     }
 
     public Cart getCart(HttpSession session) {
@@ -90,6 +101,10 @@ public class CartService {
             return "Item removed.";
         }
         Product product = products.findById(productId).orElse(null);
+        if (product != null && product.getStockQuantity() <= 0) {
+            cart.getItems().remove(productId);
+            return "\"" + product.getName() + "\" is out of stock and was removed.";
+        }
         int cap = product == null ? requestedQty : Math.min(requestedQty, product.getStockQuantity());
         if (product != null && requestedQty > product.getStockQuantity()) {
             cart.getItems().put(productId, cap);
@@ -110,8 +125,16 @@ public class CartService {
         if (v.signum() < 0) {
             throw new BusinessRuleException("Discount cannot be negative.");
         }
-        if (cart.getDiscountType() == DiscountType.PERCENT && v.compareTo(new BigDecimal("100")) > 0) {
-            throw new BusinessRuleException("Percentage discount cannot exceed 100%.");
+        if (cart.getDiscountType() == DiscountType.AMOUNT && v.compareTo(MAX_AMOUNT) > 0) {
+            throw new BusinessRuleException("Amount is too large.");
+        }
+        if (cart.getDiscountType() == DiscountType.PERCENT) {
+            if (v.compareTo(new BigDecimal("100")) > 0) {
+                throw new BusinessRuleException("Percentage discount cannot exceed 100%.");
+            }
+            if (v.compareTo(BigDecimal.valueOf(maxDiscountPercent)) > 0) {
+                throw new BusinessRuleException("Discounts above " + maxDiscountPercent + "% need an admin.");
+            }
         }
         cart.setDiscountValue(v.setScale(2, RoundingMode.HALF_UP));
     }
@@ -126,8 +149,13 @@ public class CartService {
 
     public void setCashTendered(HttpSession session, BigDecimal amount) {
         BigDecimal v = amount == null ? null : amount.setScale(2, RoundingMode.HALF_UP);
-        if (v != null && v.signum() < 0) {
-            throw new BusinessRuleException("Cash tendered cannot be negative.");
+        if (v != null) {
+            if (v.signum() < 0) {
+                throw new BusinessRuleException("Cash tendered cannot be negative.");
+            }
+            if (v.compareTo(MAX_AMOUNT) > 0) {
+                throw new BusinessRuleException("Amount is too large.");
+            }
         }
         getCart(session).setCashTendered(v);
     }

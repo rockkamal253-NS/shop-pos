@@ -246,4 +246,16 @@ class SaleServiceTest {
         assertEquals(8, products.findById(a.getId()).orElseThrow().getStockQuantity());
         assertEquals(6, products.findById(b.getId()).orElseThrow().getStockQuantity());
     }
+
+    @Test
+    void cartContainingZeroQuantityIsRejectedAndNothingWritten() {
+        Product p = product("Zero Qty Item", "10.00", 10);
+        Cart cart = new Cart();
+        cart.getItems().put(p.getId(), 0);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> sales.completeSale(cart, cashier));
+        assertEquals("Invalid quantity in cart.", ex.getMessage());
+        assertEquals(0, sales.search(null, null, null, 0).getTotalElements());
+        assertEquals(10, products.findById(p.getId()).orElseThrow().getStockQuantity());
+    }
 }
