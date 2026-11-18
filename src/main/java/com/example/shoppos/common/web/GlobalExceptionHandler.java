@@ -1,12 +1,16 @@
 package com.example.shoppos.common.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.net.URI;
@@ -23,27 +27,49 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public String handleDataIntegrity(HttpServletRequest request, RedirectAttributes ra) {
-        ra.addFlashAttribute("toastError", "This record is referenced by other data and cannot be changed or removed.");
+    public Object handleDataIntegrity(HttpServletRequest request, HttpServletResponse response, RedirectAttributes ra) {
+        String message = "This record is referenced by other data and cannot be changed or removed.";
+        if (isHtmx(request)) {
+            response.setHeader("HX-Reswap", "none");
+            Toasts.send(response, message, "error");
+            return ResponseEntity.ok().build();
+        }
+        ra.addFlashAttribute("toastError", message);
         return redirectBack(request);
     }
 
     @ExceptionHandler(BusinessRuleException.class)
-    public String handleBusinessRule(BusinessRuleException e, HttpServletRequest request, RedirectAttributes ra) {
+    public Object handleBusinessRule(BusinessRuleException e, HttpServletRequest request, HttpServletResponse response, RedirectAttributes ra) {
+        if (isHtmx(request)) {
+            response.setHeader("HX-Reswap", "none");
+            Toasts.send(response, e.getMessage(), "error");
+            return ResponseEntity.ok().build();
+        }
         ra.addFlashAttribute("toastError", e.getMessage());
         return redirectBack(request);
     }
 
     @ExceptionHandler(OptimisticLockingFailureException.class)
-    public String handleOptimisticLock(HttpServletRequest request, RedirectAttributes ra) {
-        ra.addFlashAttribute("toastError", "Someone else updated this record just now. Please try again.");
+    public Object handleOptimisticLock(HttpServletRequest request, HttpServletResponse response, RedirectAttributes ra) {
+        String message = "Someone else updated this record just now. Please try again.";
+        if (isHtmx(request)) {
+            response.setHeader("HX-Reswap", "none");
+            Toasts.send(response, message, "error");
+            return ResponseEntity.ok().build();
+        }
+        ra.addFlashAttribute("toastError", message);
         return redirectBack(request);
     }
 
     @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public String handleUnexpected(Exception e) {
         log.error("Unhandled exception", e);
         return "error/500";
+    }
+
+    private boolean isHtmx(HttpServletRequest request) {
+        return "true".equalsIgnoreCase(request.getHeader("HX-Request"));
     }
 
     private String redirectBack(HttpServletRequest request) {
