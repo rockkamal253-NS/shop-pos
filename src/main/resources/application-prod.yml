@@ -1,7 +1,7 @@
 spring:
   datasource:
     url: ${PROD_DB_URL:jdbc:postgresql://localhost:5432/shoppos}
-    driver-class-name: ${PROD_DB_DRIVER:org.postgresql.Driver}
+    driver-class-name: org.postgresql.Driver
     username: ${PROD_DB_USER:shoppos}
     password: ${PROD_DB_PASSWORD:}
   jpa:

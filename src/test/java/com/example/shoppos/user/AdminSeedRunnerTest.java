@@ -71,7 +71,7 @@ class AdminSeedRunnerTest {
 
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> runner.run(new DefaultApplicationArguments()));
-        assertEquals("APP_ADMIN_PASSWORD must be set", ex.getMessage());
+        assertEquals("APP_ADMIN_PASSWORD must not be the default value", ex.getMessage());
         verify(users, never()).save(any());
     }
 

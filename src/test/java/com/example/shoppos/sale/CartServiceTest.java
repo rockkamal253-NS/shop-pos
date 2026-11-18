@@ -97,4 +97,27 @@ class CartServiceTest {
         cartService.setCashTendered(session, new BigDecimal("9999999.99"));
         assertEquals(new BigDecimal("9999999.99"), cartService.getCart(session).getCashTendered());
     }
+
+    // ── TASK-06 admin-flag tests ────────────────────────────────────────────
+
+    @Test
+    void percentDiscount50RejectedForNonAdminAcceptedForAdmin() {
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("50"), false));
+        assertEquals("Discounts above 20% need an admin.", ex.getMessage());
+
+        // admin: accepted
+        cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("50"), true);
+        assertEquals(new BigDecimal("50.00"), cartService.getCart(session).getDiscountValue());
+    }
+
+    @Test
+    void percentDiscount101RejectedForBothAdminAndNonAdmin() {
+        assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("101"), false));
+        assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("101"), true));
+    }
+
+    // ── end TASK-06 admin-flag tests ───────────────────────────────────────
 }

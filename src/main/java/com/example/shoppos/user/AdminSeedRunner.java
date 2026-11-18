@@ -55,7 +55,7 @@ public class AdminSeedRunner implements ApplicationRunner {
             throw new IllegalStateException("APP_ADMIN_PASSWORD must be set");
         }
         if (isProd && "admin123".equals(password)) {
-            throw new IllegalStateException("APP_ADMIN_PASSWORD must be set");
+            throw new IllegalStateException("APP_ADMIN_PASSWORD must not be the default value");
         }
 
         users.save(new User(username, passwordEncoder.encode(password), displayName, Role.ADMIN));

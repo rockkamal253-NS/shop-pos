@@ -277,6 +277,52 @@ class SaleServiceTest {
         assertThrows(AccessDeniedException.class, () -> sales.voidSale(sale.getId(), cashier));
     }
 
+    // ── TASK-06 discount-cap tests ──────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "CASHIER")
+    void cashierAmountDiscountAtLimitOf100IsRejected() {
+        Product p = product("Expensive Item", "100.00", 10);
+        Cart cart = cartOf(p, 1); // subtotal = 100.00
+        cart.setDiscountType(DiscountType.AMOUNT);
+        cart.setDiscountValue(new BigDecimal("100.00")); // 100% off, exceeds 20% cap
+        assertThrows(BusinessRuleException.class, () -> sales.completeSale(cart, cashier));
+        assertEquals(10, products.findById(p.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    @WithMockUser(roles = "CASHIER")
+    void cashierAmountDiscountAt20AcceptedAt20_01Rejected() {
+        Product p1 = product("Item For 20 Test", "100.00", 10);
+        Cart cart1 = cartOf(p1, 1);
+        cart1.setDiscountType(DiscountType.AMOUNT);
+        cart1.setDiscountValue(new BigDecimal("20.00")); // exactly 20% → accepted
+        Sale sale = sales.completeSale(cart1, cashier);
+        assertEquals("80.00", sale.getTotal().toPlainString());
+
+        Product p2 = product("Item For 20.01 Test", "100.00", 10);
+        Cart cart2 = cartOf(p2, 1);
+        cart2.setDiscountType(DiscountType.AMOUNT);
+        cart2.setDiscountValue(new BigDecimal("20.01")); // just over → rejected
+        assertThrows(BusinessRuleException.class, () -> sales.completeSale(cart2, cashier));
+        assertEquals(10, products.findById(p2.getId()).orElseThrow().getStockQuantity());
+    }
+
+    @Test
+    void adminAmountDiscount100IsAccepted() {
+        // class-level @WithMockUser(roles="ADMIN") applies; use an admin User entity
+        User admin = users.save(new User("admin_disc_" + SEQ.incrementAndGet(),
+                passwordEncoder.encode("x"), "Test Admin", Role.ADMIN));
+        Product p = product("Admin Discount Item", "100.00", 10);
+        Cart cart = cartOf(p, 1);
+        cart.setDiscountType(DiscountType.AMOUNT);
+        cart.setDiscountValue(new BigDecimal("100.00")); // 100% off → admin can do this
+        Sale sale = sales.completeSale(cart, admin);
+        assertEquals("0.00", sale.getTotal().toPlainString());
+    }
+
+    // ── end TASK-06 discount-cap tests ─────────────────────────────────────
+
     @Test
     void staleSaleOptimisticLockThrowsException() {
         Product p = product("Optimistic Item", "10.00", 10);
