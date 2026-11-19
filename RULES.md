@@ -43,4 +43,5 @@ Run this only when the task file has a "Browser check" section.
 7. If the app fails to start or the browser step is blocked, report it and stop. Do not change config to work around it.
 
 Also follow DB-RULES.md and WORKING-PRINCIPLES.md. If they conflict with a task file, stop and ask.
+Also follow AWAY-MODE.md when the prompt says I am away.
 
