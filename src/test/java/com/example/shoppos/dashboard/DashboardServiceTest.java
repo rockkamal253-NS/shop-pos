@@ -3,10 +3,13 @@ package com.example.shoppos.dashboard;
 import com.example.shoppos.product.Product;
 import com.example.shoppos.product.ProductRepository;
 import com.example.shoppos.sale.Cart;
+import com.example.shoppos.sale.DiscountType;
+import com.example.shoppos.sale.PaymentMethod;
 import com.example.shoppos.sale.Sale;
 import com.example.shoppos.sale.SaleItemRepository;
 import com.example.shoppos.sale.SaleRepository;
 import com.example.shoppos.sale.SaleService;
+import com.example.shoppos.sale.SaleStatus;
 import com.example.shoppos.user.Role;
 import com.example.shoppos.user.User;
 import com.example.shoppos.user.UserRepository;
@@ -21,6 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -127,5 +133,39 @@ class DashboardServiceTest {
         DashboardService.DashboardStats currentStats = dashboard.stats();
         assertEquals(1, currentStats.todayTransactions());
         assertEquals("20.00", currentStats.todayRevenue().toPlainString());
+    }
+
+    @Test
+    void salesAroundMidnightHandledAccuratelyByConfiguredTimezone() {
+        ZoneId cairoZone = ZoneId.of("Africa/Cairo");
+        LocalDate date = LocalDate.of(2026, 11, 22);
+        LocalDateTime clockTime = LocalDateTime.of(date, LocalTime.of(23, 50));
+        Clock fixedClockAt2350 = Clock.fixed(clockTime.atZone(cairoZone).toInstant(), cairoZone);
+        DashboardService serviceAt2350 = new DashboardService(sales, saleItems, products, fixedClockAt2350);
+
+        long initialTransactions = serviceAt2350.stats().todayTransactions();
+        BigDecimal initialRevenue = serviceAt2350.stats().todayRevenue();
+
+        // Sale 1: created 10 minutes earlier (23:40 on date) -> counts as today
+        Sale sale1 = new Sale(cashier, new BigDecimal("100.00"),
+                DiscountType.NONE, BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("100.00"), PaymentMethod.CASH,
+                new BigDecimal("100.00"), BigDecimal.ZERO);
+        sale1.setStatus(SaleStatus.COMPLETED);
+        sale1.setCreatedAt(clockTime.minusMinutes(10));
+        sales.save(sale1);
+
+        // Sale 2: created 20 minutes later (00:10 next day) -> does not count as today
+        Sale sale2 = new Sale(cashier, new BigDecimal("60.00"),
+                DiscountType.NONE, BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("60.00"), PaymentMethod.CASH,
+                new BigDecimal("60.00"), BigDecimal.ZERO);
+        sale2.setStatus(SaleStatus.COMPLETED);
+        sale2.setCreatedAt(clockTime.plusMinutes(20));
+        sales.save(sale2);
+
+        DashboardService.DashboardStats stats = serviceAt2350.stats();
+        assertEquals(initialTransactions + 1, stats.todayTransactions());
+        assertEquals(initialRevenue.add(new BigDecimal("100.00")), stats.todayRevenue());
     }
 }
