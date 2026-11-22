@@ -1,5 +1,6 @@
 package com.example.shoppos.product;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
@@ -32,12 +33,12 @@ public class ProductForm {
 
     @NotNull(message = "Cost price is required.")
     @DecimalMin(value = "0.00", message = "Cost price cannot be negative.")
-    @Digits(integer = 10, fraction = 2, message = "Use up to 10 digits and 2 decimals.")
+    @DecimalMax(value = "9999999999.99", message = "Price is too large.")
     private BigDecimal costPrice;
 
     @NotNull(message = "Sell price is required.")
     @DecimalMin(value = "0.00", message = "Sell price cannot be negative.")
-    @Digits(integer = 10, fraction = 2, message = "Use up to 10 digits and 2 decimals.")
+    @DecimalMax(value = "9999999999.99", message = "Price is too large.")
     private BigDecimal sellPrice;
 
     @NotNull(message = "Initial stock is required.")

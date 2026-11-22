@@ -18,6 +18,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 /**
@@ -84,8 +85,8 @@ public class Product {
         this.sku = sku;
         this.barcode = barcode;
         this.category = category;
-        this.costPrice = costPrice.setScale(2);
-        this.sellPrice = sellPrice.setScale(2);
+        this.costPrice = costPrice != null ? costPrice.setScale(2, RoundingMode.HALF_UP) : null;
+        this.sellPrice = sellPrice != null ? sellPrice.setScale(2, RoundingMode.HALF_UP) : null;
         this.stockQuantity = stockQuantity;
         this.lowStockThreshold = lowStockThreshold;
         this.active = active;
@@ -153,7 +154,7 @@ public class Product {
     }
 
     public void setCostPrice(BigDecimal costPrice) {
-        this.costPrice = costPrice.setScale(2);
+        this.costPrice = costPrice != null ? costPrice.setScale(2, RoundingMode.HALF_UP) : null;
     }
 
     public BigDecimal getSellPrice() {
@@ -161,7 +162,7 @@ public class Product {
     }
 
     public void setSellPrice(BigDecimal sellPrice) {
-        this.sellPrice = sellPrice.setScale(2);
+        this.sellPrice = sellPrice != null ? sellPrice.setScale(2, RoundingMode.HALF_UP) : null;
     }
 
     public int getStockQuantity() {

@@ -59,6 +59,10 @@
         }
     });
 
+    document.body.addEventListener('htmx:responseError', function () {
+        showToast('Something went wrong. Please try again.', 'error');
+    });
+
     /* ---------- Confirmation dialog for destructive actions ---------- */
     // Forms declared as <form data-confirm="message" data-confirm-title="..."> open the dialog first.
     document.addEventListener('submit', function (e) {

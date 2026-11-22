@@ -9,3 +9,8 @@ spring:
       ddl-auto: validate
   thymeleaf:
     cache: false
+
+app:
+  max-cashier-discount-percent: 100
+  admin:
+    password: admin123

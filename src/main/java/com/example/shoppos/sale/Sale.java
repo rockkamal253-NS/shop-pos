@@ -13,6 +13,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +32,9 @@ public class Sale {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     @ManyToOne(optional = false, fetch = FetchType.EAGER)
     @JoinColumn(name = "cashier_id", nullable = false)
@@ -73,7 +78,8 @@ public class Sale {
     private com.example.shoppos.user.User voidedBy;
 
     @OneToMany(mappedBy = "sale", cascade = jakarta.persistence.CascadeType.ALL,
-            orphanRemoval = true, fetch = FetchType.EAGER)
+            orphanRemoval = true)
+    @BatchSize(size = 50)
     private List<SaleItem> items = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -119,6 +125,10 @@ public class Sale {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public com.example.shoppos.user.User getCashier() {

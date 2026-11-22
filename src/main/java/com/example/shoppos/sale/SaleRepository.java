@@ -16,7 +16,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @EntityGraph(attributePaths = {"cashier", "items", "voidedBy"})
     Optional<Sale> findWithDetailsById(Long id);
 
-    @EntityGraph(attributePaths = {"cashier", "items"})
+    @EntityGraph(attributePaths = {"cashier"})
     @Query("""
             select s from Sale s
             where (:from is null or s.createdAt >= :from)

@@ -22,6 +22,15 @@ public class InventoryService {
     /** Manual adjustment (receive / correction / damage) with a mandatory reason. */
     @Transactional
     public Product adjust(StockAdjustForm form, User user) {
+        if (form.getQuantity() == null || form.getQuantity() < 1) {
+            throw new BusinessRuleException("Quantity must be at least 1.");
+        }
+        if (form.getType() == null) {
+            throw new BusinessRuleException("Choose an adjustment type.");
+        }
+        if (form.getProductId() == null) {
+            throw new NotFoundException("Product not found.");
+        }
         Product product = products.findById(form.getProductId())
                 .orElseThrow(() -> new NotFoundException("Product not found."));
 

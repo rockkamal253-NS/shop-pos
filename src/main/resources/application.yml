@@ -12,9 +12,10 @@ app:
   # Single source of truth for money display. All amounts are BigDecimal scale 2.
   currency: EGP
   shop-name: Corner Store
+  timezone: Africa/Cairo
+  max-cashier-discount-percent: 20
   admin:
     # Seeded at startup (BCrypt-encoded) only if the username does not exist yet.
     # Override via environment variables APP_ADMIN_USERNAME / APP_ADMIN_PASSWORD in production.
     username: admin
-    password: admin123
     display-name: Store Admin

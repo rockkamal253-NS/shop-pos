@@ -4,10 +4,12 @@ import com.example.shoppos.common.web.BusinessRuleException;
 import com.example.shoppos.common.web.Toasts;
 import com.example.shoppos.product.Product;
 import com.example.shoppos.user.CurrentUserService;
+import com.example.shoppos.user.Role;
 import com.example.shoppos.user.User;
 import com.example.shoppos.user.UserPrincipal;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -124,9 +126,11 @@ public class PosController {
                               @RequestParam(required = false) BigDecimal discountValue,
                               HttpSession session,
                               Model model,
-                              HttpServletResponse response) {
+                              HttpServletResponse response,
+                              @AuthenticationPrincipal UserPrincipal principal) {
         try {
-            carts.setDiscount(session, discountType, discountValue);
+            boolean admin = principal != null && principal.getRole() == Role.ADMIN;
+            carts.setDiscount(session, discountType, discountValue, admin);
         } catch (BusinessRuleException e) {
             Toasts.send(response, e.getMessage(), "error");
         }
@@ -172,6 +176,9 @@ public class PosController {
         } catch (InsufficientStockException e) {
             model.addAttribute("checkoutError", "Sale rejected — not enough stock for: " + String.join("; ", e.getIssues()));
             Toasts.send(response, "Sale rejected — not enough stock.", "error");
+        } catch (OptimisticLockingFailureException e) {
+            model.addAttribute("checkoutError", "Stock just changed. Please review the cart and try again.");
+            Toasts.send(response, "Stock just changed. Please review the cart and try again.", "error");
         } catch (BusinessRuleException e) {
             model.addAttribute("checkoutError", e.getMessage());
             Toasts.send(response, e.getMessage(), "error");

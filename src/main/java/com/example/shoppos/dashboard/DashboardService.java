@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
@@ -19,16 +20,18 @@ public class DashboardService {
     private final SaleRepository sales;
     private final SaleItemRepository saleItems;
     private final ProductRepository products;
+    private final Clock clock;
 
-    public DashboardService(SaleRepository sales, SaleItemRepository saleItems, ProductRepository products) {
+    public DashboardService(SaleRepository sales, SaleItemRepository saleItems, ProductRepository products, Clock clock) {
         this.sales = sales;
         this.saleItems = saleItems;
         this.products = products;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
     public DashboardStats stats() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         var todayStart = today.atStartOfDay();
         var tomorrow = today.plusDays(1).atStartOfDay();
         var weekStart = today.with(DayOfWeek.MONDAY).atStartOfDay(); // ISO week starts Monday

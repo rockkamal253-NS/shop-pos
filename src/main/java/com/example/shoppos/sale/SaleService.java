@@ -6,14 +6,19 @@ import com.example.shoppos.inventory.InventoryService;
 import com.example.shoppos.inventory.MovementType;
 import com.example.shoppos.product.Product;
 import com.example.shoppos.product.ProductRepository;
+import com.example.shoppos.user.Role;
 import com.example.shoppos.user.User;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,17 +35,31 @@ public class SaleService {
     private final SaleRepository sales;
     private final ProductRepository products;
     private final InventoryService inventory;
+    private final int maxCashierDiscountPercent;
 
-    public SaleService(SaleRepository sales, ProductRepository products, InventoryService inventory) {
+    @Autowired
+    public SaleService(SaleRepository sales, ProductRepository products, InventoryService inventory,
+                       @Value("${app.max-cashier-discount-percent:20}") int maxCashierDiscountPercent) {
         this.sales = sales;
         this.products = products;
         this.inventory = inventory;
+        this.maxCashierDiscountPercent = maxCashierDiscountPercent;
+    }
+
+    /** Convenience constructor for tests that don't need to override the limit. */
+    public SaleService(SaleRepository sales, ProductRepository products, InventoryService inventory) {
+        this(sales, products, inventory, 20);
     }
 
     @Transactional
     public Sale completeSale(Cart cart, User cashier) {
         if (cart.isEmpty()) {
             throw new BusinessRuleException("The cart is empty.");
+        }
+        for (var entry : cart.getItems().entrySet()) {
+            if (entry.getValue() == null || entry.getValue() < 1) {
+                throw new BusinessRuleException("Invalid quantity in cart.");
+            }
         }
 
         // 1. Load and validate everything BEFORE writing anything.
@@ -73,6 +92,17 @@ public class SaleService {
             throw new BusinessRuleException("Cash tendered is less than the total.");
         }
 
+        // Enforce cashier discount cap (admins are exempt).
+        if (cashier.getRole() != Role.ADMIN) {
+            BigDecimal maxAllowed = subtotal
+                    .multiply(BigDecimal.valueOf(maxCashierDiscountPercent))
+                    .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            if (totals.discountAmount().compareTo(maxAllowed) > 0) {
+                throw new BusinessRuleException(
+                        "Discounts above " + maxCashierDiscountPercent + "% need an admin.");
+            }
+        }
+
         // 2. Build the sale with price/name snapshots, then persist to obtain the ID.
         Sale sale = new Sale(cashier, totals.subtotal(), cart.getDiscountType(), cart.getDiscountValue(),
                 totals.discountAmount(), totals.total(), cart.getPaymentMethod(),
@@ -98,6 +128,7 @@ public class SaleService {
     }
 
     /** ADMIN: undo a sale — restores stock and writes a VOID_RESTORE movement per item. */
+    @PreAuthorize("hasRole('ADMIN')")
     @Transactional
     public Sale voidSale(Long saleId, User admin) {
         Sale sale = sales.findWithDetailsById(saleId)
