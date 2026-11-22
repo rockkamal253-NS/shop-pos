@@ -66,6 +66,10 @@ public class User {
         return password;
     }
 
+    public void setPasswordHash(String hash) {
+        this.password = hash;
+    }
+
     public String getDisplayName() {
         return displayName;
     }

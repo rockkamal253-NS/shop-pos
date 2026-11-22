@@ -78,6 +78,10 @@
                           th:text="${currentUserRole == 'ADMIN'} ? 'Administrator' : 'Cashier'">Role</span>
                 </span>
             </span>
+            <a th:href="@{/account/password}" class="btn btn-secondary" title="Change password">
+                <svg th:replace="~{fragments/icons :: pencil('h-4 w-4')}"></svg>
+                <span class="hidden md:inline">Change password</span>
+            </a>
             <form th:action="@{/logout}" method="post">
                 <button type="submit" class="btn btn-secondary" title="Sign out">
                     <svg th:replace="~{fragments/icons :: logout('h-4 w-4')}"></svg>
