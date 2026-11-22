@@ -13,7 +13,7 @@ public class LoginController {
                         @RequestParam(required = false) String logout,
                         Model model) {
         if (error != null) {
-            model.addAttribute("errorMessage", "Invalid username or password.");
+            model.addAttribute("errorMessage", "Invalid username or password, or too many attempts. Try again later.");
         }
         if (logout != null) {
             model.addAttribute("logoutMessage", "You have been signed out.");

@@ -17,14 +17,20 @@ public class UserPrincipal implements UserDetails {
     private final String displayName;
     private final Role role;
     private final boolean enabled;
+    private final boolean accountNonLocked;
 
     public UserPrincipal(User user) {
+        this(user, true);
+    }
+
+    public UserPrincipal(User user, boolean accountNonLocked) {
         this.id = user.getId();
         this.username = user.getUsername();
         this.password = user.getPassword();
         this.displayName = user.getDisplayName();
         this.role = user.getRole();
         this.enabled = user.isEnabled();
+        this.accountNonLocked = accountNonLocked;
     }
 
     public Long getId() {
@@ -61,7 +67,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return accountNonLocked;
     }
 
     @Override
