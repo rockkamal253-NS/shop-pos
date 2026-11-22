@@ -8,6 +8,7 @@ import com.example.shoppos.product.Product;
 import com.example.shoppos.product.ProductRepository;
 import com.example.shoppos.user.Role;
 import com.example.shoppos.user.User;
+import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -158,6 +159,8 @@ public class SaleService {
 
     @Transactional(readOnly = true)
     public Page<Sale> search(LocalDateTime from, LocalDateTime to, Long cashierId, int page) {
-        return sales.search(from, to, cashierId, PageRequest.of(page, 20, Sort.by(Sort.Direction.DESC, "createdAt")));
+        Page<Sale> result = sales.search(from, to, cashierId, PageRequest.of(page, 20, Sort.by(Sort.Direction.DESC, "createdAt")));
+        result.forEach(sale -> Hibernate.initialize(sale.getItems()));
+        return result;
     }
 }

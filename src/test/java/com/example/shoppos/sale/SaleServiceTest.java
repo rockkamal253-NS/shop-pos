@@ -16,11 +16,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -344,5 +346,32 @@ class SaleServiceTest {
         assertThrows(OptimisticLockingFailureException.class, () -> {
             saleRepository.saveAndFlush(sale);
         });
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void searchInitializesItemsOutsideTransaction() {
+        Product a = product("Lazy Item A", "10.00", 10);
+        Product b = product("Lazy Item B", "5.00", 10);
+        Cart cart = new Cart();
+        cart.getItems().put(a.getId(), 2);
+        cart.getItems().put(b.getId(), 3);
+        cart.setCashTendered(new BigDecimal("9999.00"));
+        Sale sale = sales.completeSale(cart, cashier);
+
+        try {
+            Page<Sale> page = sales.search(null, null, null, 0);
+            Sale found = page.getContent().stream()
+                    .filter(s -> s.getId().equals(sale.getId()))
+                    .findFirst().orElseThrow();
+
+            assertEquals(2, found.getItems().size());
+            assertEquals(5, found.getItemCount());
+        } finally {
+            saleRepository.deleteAll();
+            movements.deleteAll();
+            products.deleteById(a.getId());
+            products.deleteById(b.getId());
+        }
     }
 }
