@@ -1,12 +1,9 @@
 package com.example.shoppos.user;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.BindingResult;
-
-import java.time.Clock;
 
 @Service
 public class AccountService {
@@ -15,15 +12,10 @@ public class AccountService {
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService loginAttemptService;
 
-    @Autowired
     public AccountService(UserRepository users, PasswordEncoder passwordEncoder, LoginAttemptService loginAttemptService) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.loginAttemptService = loginAttemptService;
-    }
-
-    public AccountService(UserRepository users, PasswordEncoder passwordEncoder) {
-        this(users, passwordEncoder, new LoginAttemptService(Clock.systemDefaultZone(), 5, 10));
     }
 
     @Transactional

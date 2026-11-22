@@ -10,6 +10,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,7 +30,9 @@ class AccountServiceTest {
     @BeforeEach
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
-        accountService = new AccountService(userRepository, passwordEncoder);
+        Clock clock = Clock.fixed(Instant.parse("2026-11-22T10:00:00Z"), ZoneId.of("UTC"));
+        LoginAttemptService loginAttemptService = new LoginAttemptService(clock, 5, 10);
+        accountService = new AccountService(userRepository, passwordEncoder, loginAttemptService);
     }
 
     private User createTestUser(String rawPassword) {
