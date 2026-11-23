@@ -82,13 +82,6 @@ class PostgresFilterQueriesTest {
         productRepository.save(new Product("Butter 200g", "SKU-BUTTER", "BAR-BUTTER-789", cat,
                 new BigDecimal("20.00"), new BigDecimal("25.00"), 20, 5, true));
 
-        try {
-            productRepository.save(new Product("Fresh Apple", "SKU-APPLE", null, cat,
-                    new BigDecimal("3.00"), new BigDecimal("5.00"), 100, 10, true));
-        } catch (Exception ignored) {
-            // barcode has NOT NULL constraint in schema
-        }
-
         baseTime = LocalDateTime.of(2026, 11, 23, 10, 0, 0);
 
         Sale sale1 = new Sale(cashier1, new BigDecimal("15.00"), DiscountType.NONE,
@@ -115,7 +108,7 @@ class PostgresFilterQueriesTest {
     @Test
     void productSearch_qNull_returnsAll() {
         Page<Product> result = productRepository.search(null, PageRequest.of(0, 10));
-        assertThat(result.getContent()).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(result.getContent()).hasSize(3);
     }
 
     @Test
@@ -146,10 +139,10 @@ class PostgresFilterQueriesTest {
     void productSearch_pagingWorks() {
         Page<Product> page0 = productRepository.search(null, PageRequest.of(0, 2));
         assertThat(page0.getContent()).hasSize(2);
-        assertThat(page0.getTotalElements()).isGreaterThanOrEqualTo(3);
+        assertThat(page0.getTotalElements()).isEqualTo(3);
 
         Page<Product> page1 = productRepository.search(null, PageRequest.of(1, 2));
-        assertThat(page1.getContent()).hasSizeGreaterThanOrEqualTo(1);
+        assertThat(page1.getContent()).hasSize(1);
     }
 
     // --- SaleRepository.search ---
