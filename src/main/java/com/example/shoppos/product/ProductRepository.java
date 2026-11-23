@@ -30,10 +30,10 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = "category")
     @Query("""
             select p from Product p
-            where (:q is null
-                   or lower(p.name) like lower(concat('%', :q, '%'))
-                   or lower(p.sku) like lower(concat('%', :q, '%'))
-                   or lower(p.barcode) like lower(concat('%', :q, '%')))
+            where (cast(:q as String) is null
+                   or lower(p.name) like lower(concat('%', cast(:q as String), '%'))
+                   or lower(p.sku) like lower(concat('%', cast(:q as String), '%'))
+                   or lower(p.barcode) like lower(concat('%', cast(:q as String), '%')))
             """)
     Page<Product> search(@Param("q") String q, Pageable pageable);
 

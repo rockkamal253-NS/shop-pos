@@ -19,9 +19,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @EntityGraph(attributePaths = {"cashier"})
     @Query("""
             select s from Sale s
-            where (:from is null or s.createdAt >= :from)
-              and (:to is null or s.createdAt < :to)
-              and (:cashierId is null or s.cashier.id = :cashierId)
+            where (cast(:from as LocalDateTime) is null or s.createdAt >= :from)
+              and (cast(:to as LocalDateTime) is null or s.createdAt < :to)
+              and (cast(:cashierId as Long) is null or s.cashier.id = :cashierId)
             """)
     Page<Sale> search(@Param("from") LocalDateTime from,
                       @Param("to") LocalDateTime to,
