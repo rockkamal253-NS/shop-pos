@@ -3,6 +3,10 @@ package com.example.shoppos;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 
 import java.time.ZoneId;
 import java.util.TimeZone;
@@ -18,6 +22,15 @@ public class ShopPosApplication {
     }
 
     public static void main(String[] args) {
-        SpringApplication.run(ShopPosApplication.class, args);
+        SpringApplication app = new SpringApplication(ShopPosApplication.class);
+        app.addListeners((ApplicationListener<ApplicationEnvironmentPreparedEvent>) event ->
+                requireKnownProfile(event.getEnvironment()));
+        app.run(args);
+    }
+
+    static void requireKnownProfile(Environment env) {
+        if (!env.acceptsProfiles(Profiles.of("dev", "test", "prod"))) {
+            throw new IllegalStateException("No Spring profile is active. Set SPRING_PROFILES_ACTIVE=prod for production (or dev for local development).");
+        }
     }
 }

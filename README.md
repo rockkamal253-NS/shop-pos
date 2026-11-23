@@ -12,7 +12,7 @@ open http://localhost:8080
 Default admin in dev: **admin / admin123** (from `application-dev.yml`).
 Dev sample data adds cashier **cashier1 / cashier123** and 15 products across 4 categories.
 In production, `APP_ADMIN_PASSWORD` is required (the app refuses to start otherwise) and cannot be `admin123`.
-Prod: PostgreSQL — set `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`, `APP_ADMIN_PASSWORD`, then `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod`.
+Prod: PostgreSQL — set `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`, `APP_ADMIN_PASSWORD`, then `./mvnw spring-boot:run -Dspring-boot.run.profiles=prod`. Deploy note: production must set `SPRING_PROFILES_ACTIVE=prod`; the app refuses to start with no profile.
 
 ## Tests
 
