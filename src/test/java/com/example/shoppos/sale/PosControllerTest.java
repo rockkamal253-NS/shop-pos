@@ -56,6 +56,7 @@ class PosControllerTest {
     @Test
     void checkoutOptimisticLockFailureRendersCartInnerAndDoesNotClearCart() throws Exception {
         Cart cart = new Cart();
+        cart.getItems().put(1L, 1);
         User cashier = new User("cashier1", "hash", "Cashier One", Role.CASHIER);
         UserPrincipal principal = new UserPrincipal(cashier);
         UsernamePasswordAuthenticationToken auth =
