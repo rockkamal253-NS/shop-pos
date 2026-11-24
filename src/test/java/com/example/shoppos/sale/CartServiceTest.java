@@ -179,5 +179,50 @@ class CartServiceTest {
         verify(productRepository, never()).findById(any());
     }
 
+    @Test
+    void discountTypeAndValuePreservedWhenValidationFails() {
+        Category category = new Category("Test Category");
+        Product product = new Product("Item", "SKU-1", "BC-1", category,
+                new BigDecimal("50.00"), new BigDecimal("100.00"), 10, 2, true);
+        ReflectionTestUtils.setField(product, "id", 1L);
+
+        Cart cart = cartService.getCart(session);
+        cart.getItems().put(1L, 1);
+        when(productRepository.findAllById(any())).thenReturn(List.of(product));
+
+        // Existing discount: PERCENT 10
+        cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("10.00"), false);
+        assertEquals(DiscountType.PERCENT, cart.getDiscountType());
+        assertEquals(new BigDecimal("10.00"), cart.getDiscountValue());
+
+        // Cashier submits AMOUNT 500.00 -> BusinessRuleException AND cart still has type PERCENT and value 10.00
+        assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.AMOUNT, new BigDecimal("500.00"), false));
+        assertEquals(DiscountType.PERCENT, cart.getDiscountType());
+        assertEquals(new BigDecimal("10.00"), cart.getDiscountValue());
+
+        // Setup cart with AMOUNT 5.00
+        cartService.setDiscount(session, DiscountType.AMOUNT, new BigDecimal("5.00"), false);
+        assertEquals(DiscountType.AMOUNT, cart.getDiscountType());
+        assertEquals(new BigDecimal("5.00"), cart.getDiscountValue());
+
+        // Cashier submits PERCENT 50 (over 20% cap) -> exception and old AMOUNT 5.00 is kept
+        assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("50.00"), false));
+        assertEquals(DiscountType.AMOUNT, cart.getDiscountType());
+        assertEquals(new BigDecimal("5.00"), cart.getDiscountValue());
+
+        // Valid change updates both type and value
+        cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("15.00"), false);
+        assertEquals(DiscountType.PERCENT, cart.getDiscountType());
+        assertEquals(new BigDecimal("15.00"), cart.getDiscountValue());
+
+        // Negative value is rejected and changes nothing
+        assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.AMOUNT, new BigDecimal("-5.00"), false));
+        assertEquals(DiscountType.PERCENT, cart.getDiscountType());
+        assertEquals(new BigDecimal("15.00"), cart.getDiscountValue());
+    }
+
     // ── end TASK-06 admin-flag tests ───────────────────────────────────────
 }
