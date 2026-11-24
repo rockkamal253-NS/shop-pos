@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.util.WebUtils;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * The register (POS). All interactions are HTMX partial swaps against the
@@ -41,11 +43,19 @@ public class PosController {
         this.currentUser = currentUser;
     }
 
+    private <T> T withCartLock(HttpSession session, Supplier<T> body) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            return body.get();
+        }
+    }
+
     @GetMapping
     public String register(HttpSession session, Model model) {
-        fillModel(model, session);
-        model.addAttribute("results", carts.searchResults(""));
-        return "pos/pos";
+        return withCartLock(session, () -> {
+            fillModel(model, session);
+            model.addAttribute("results", carts.searchResults(""));
+            return "pos/pos";
+        });
     }
 
     @GetMapping("/search")
@@ -61,36 +71,40 @@ public class PosController {
                        HttpSession session,
                        Model model,
                        HttpServletResponse response) {
-        String term = q == null ? "" : q.trim();
-        if (!term.isEmpty()) {
-            Optional<Product> exact = carts.findByBarcodeOrSku(term);
-            if (exact.isPresent()) {
-                try {
-                    String message = carts.add(session, exact.get().getId());
-                    Toasts.send(response, message, "info");
-                } catch (BusinessRuleException e) {
-                    Toasts.send(response, e.getMessage(), "error");
+        return withCartLock(session, () -> {
+            String term = q == null ? "" : q.trim();
+            if (!term.isEmpty()) {
+                Optional<Product> exact = carts.findByBarcodeOrSku(term);
+                if (exact.isPresent()) {
+                    try {
+                        String message = carts.add(session, exact.get().getId());
+                        Toasts.send(response, message, "info");
+                    } catch (BusinessRuleException e) {
+                        Toasts.send(response, e.getMessage(), "error");
+                    }
+                } else {
+                    Toasts.send(response, "No exact match for \"" + term + "\" — use the search below.", "info");
                 }
-            } else {
-                Toasts.send(response, "No exact match for \"" + term + "\" — use the search below.", "info");
             }
-        }
-        fillModel(model, session);
-        // Keep the full product grid visible after a scan; the toast confirms the add.
-        model.addAttribute("results", carts.searchResults(null));
-        return "pos/fragments :: scan";
+            fillModel(model, session);
+            // Keep the full product grid visible after a scan; the toast confirms the add.
+            model.addAttribute("results", carts.searchResults(null));
+            return "pos/fragments :: scan";
+        });
     }
 
     @PostMapping("/cart/add/{id}")
     public String addToCart(@PathVariable Long id, HttpSession session, Model model, HttpServletResponse response) {
-        try {
-            String message = carts.add(session, id);
-            Toasts.send(response, message, "info");
-        } catch (BusinessRuleException e) {
-            Toasts.send(response, e.getMessage(), "error");
-        }
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        return withCartLock(session, () -> {
+            try {
+                String message = carts.add(session, id);
+                Toasts.send(response, message, "info");
+            } catch (BusinessRuleException e) {
+                Toasts.send(response, e.getMessage(), "error");
+            }
+            fillModel(model, session);
+            return "pos/fragments :: cartInner";
+        });
     }
 
     @PostMapping("/cart/qty/{id}")
@@ -99,26 +113,32 @@ public class PosController {
                          HttpSession session,
                          Model model,
                          HttpServletResponse response) {
-        String message = carts.setQuantity(session, id, qty);
-        if (message != null) {
-            Toasts.send(response, message, "info");
-        }
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        return withCartLock(session, () -> {
+            String message = carts.setQuantity(session, id, qty);
+            if (message != null) {
+                Toasts.send(response, message, "info");
+            }
+            fillModel(model, session);
+            return "pos/fragments :: cartInner";
+        });
     }
 
     @PostMapping("/cart/remove/{id}")
     public String removeFromCart(@PathVariable Long id, HttpSession session, Model model) {
-        carts.remove(session, id);
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        return withCartLock(session, () -> {
+            carts.remove(session, id);
+            fillModel(model, session);
+            return "pos/fragments :: cartInner";
+        });
     }
 
     @PostMapping("/cart/clear")
     public String clearCart(HttpSession session, RedirectAttributes ra) {
-        carts.clear(session);
-        ra.addFlashAttribute("toastInfo", "Cart cleared.");
-        return "redirect:/pos";
+        return withCartLock(session, () -> {
+            carts.clear(session);
+            ra.addFlashAttribute("toastInfo", "Cart cleared.");
+            return "redirect:/pos";
+        });
     }
 
     @PostMapping("/cart/discount")
@@ -128,21 +148,25 @@ public class PosController {
                               Model model,
                               HttpServletResponse response,
                               @AuthenticationPrincipal UserPrincipal principal) {
-        try {
-            boolean admin = principal != null && principal.getRole() == Role.ADMIN;
-            carts.setDiscount(session, discountType, discountValue, admin);
-        } catch (BusinessRuleException e) {
-            Toasts.send(response, e.getMessage(), "error");
-        }
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        return withCartLock(session, () -> {
+            try {
+                boolean admin = principal != null && principal.getRole() == Role.ADMIN;
+                carts.setDiscount(session, discountType, discountValue, admin);
+            } catch (BusinessRuleException e) {
+                Toasts.send(response, e.getMessage(), "error");
+            }
+            fillModel(model, session);
+            return "pos/fragments :: cartInner";
+        });
     }
 
     @PostMapping("/cart/payment/{method}")
     public String setPayment(@PathVariable PaymentMethod method, HttpSession session, Model model) {
-        carts.setPaymentMethod(session, method);
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        return withCartLock(session, () -> {
+            carts.setPaymentMethod(session, method);
+            fillModel(model, session);
+            return "pos/fragments :: cartInner";
+        });
     }
 
     @PostMapping("/cart/tender")
@@ -150,13 +174,15 @@ public class PosController {
                             HttpSession session,
                             Model model,
                             HttpServletResponse response) {
-        try {
-            carts.setCashTendered(session, amount);
-        } catch (BusinessRuleException e) {
-            Toasts.send(response, e.getMessage(), "error");
-        }
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        return withCartLock(session, () -> {
+            try {
+                carts.setCashTendered(session, amount);
+            } catch (BusinessRuleException e) {
+                Toasts.send(response, e.getMessage(), "error");
+            }
+            fillModel(model, session);
+            return "pos/fragments :: cartInner";
+        });
     }
 
     /** Completes the sale in one transaction, then HTMX-redirects to the printable receipt. */
@@ -165,26 +191,31 @@ public class PosController {
                            Model model,
                            HttpServletResponse response,
                            @AuthenticationPrincipal UserPrincipal principal) {
-        try {
-            Cart cart = carts.getCart(session);
-            User cashier = currentUser.getCurrent(principal);
-            Sale sale = sales.completeSale(cart, cashier);
-            carts.clear(session);
-            response.setHeader("HX-Redirect", "/sales/" + sale.getId() + "/receipt?print=1");
+        return withCartLock(session, () -> {
+            try {
+                Cart cart = carts.getCart(session);
+                if (cart.isEmpty()) {
+                    throw new BusinessRuleException("The cart is empty.");
+                }
+                User cashier = currentUser.getCurrent(principal);
+                Sale sale = sales.completeSale(cart, cashier);
+                carts.clear(session);
+                response.setHeader("HX-Redirect", "/sales/" + sale.getId() + "/receipt?print=1");
+                fillModel(model, session);
+                return "pos/fragments :: cartInner";
+            } catch (InsufficientStockException e) {
+                model.addAttribute("checkoutError", "Sale rejected — not enough stock for: " + String.join("; ", e.getIssues()));
+                Toasts.send(response, "Sale rejected — not enough stock.", "error");
+            } catch (OptimisticLockingFailureException e) {
+                model.addAttribute("checkoutError", "Stock just changed. Please review the cart and try again.");
+                Toasts.send(response, "Stock just changed. Please review the cart and try again.", "error");
+            } catch (BusinessRuleException e) {
+                model.addAttribute("checkoutError", e.getMessage());
+                Toasts.send(response, e.getMessage(), "error");
+            }
             fillModel(model, session);
             return "pos/fragments :: cartInner";
-        } catch (InsufficientStockException e) {
-            model.addAttribute("checkoutError", "Sale rejected — not enough stock for: " + String.join("; ", e.getIssues()));
-            Toasts.send(response, "Sale rejected — not enough stock.", "error");
-        } catch (OptimisticLockingFailureException e) {
-            model.addAttribute("checkoutError", "Stock just changed. Please review the cart and try again.");
-            Toasts.send(response, "Stock just changed. Please review the cart and try again.", "error");
-        } catch (BusinessRuleException e) {
-            model.addAttribute("checkoutError", e.getMessage());
-            Toasts.send(response, e.getMessage(), "error");
-        }
-        fillModel(model, session);
-        return "pos/fragments :: cartInner";
+        });
     }
 
     private void fillModel(Model model, HttpSession session) {
