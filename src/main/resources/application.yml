@@ -15,6 +15,7 @@ app:
   security:
     max-login-attempts: 5
     lock-minutes: 10
+    max-tracked-usernames: 10000
   admin:
     # Seeded at startup (BCrypt-encoded) only if the username does not exist yet.
     # Override via environment variables APP_ADMIN_USERNAME / APP_ADMIN_PASSWORD in production.
