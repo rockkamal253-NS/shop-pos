@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Session cart operations and the computed view used by the POS screen. */
 @Service
@@ -125,8 +127,17 @@ public class CartService {
         if (v.signum() < 0) {
             throw new BusinessRuleException("Discount cannot be negative.");
         }
-        if (cart.getDiscountType() == DiscountType.AMOUNT && v.compareTo(MAX_AMOUNT) > 0) {
-            throw new BusinessRuleException("Amount is too large.");
+        if (cart.getDiscountType() == DiscountType.AMOUNT) {
+            if (v.compareTo(MAX_AMOUNT) > 0) {
+                throw new BusinessRuleException("Amount is too large.");
+            }
+            if (!admin && !cart.getItems().isEmpty()) {
+                BigDecimal subtotal = computeSubtotal(cart);
+                if (subtotal.compareTo(BigDecimal.ZERO) > 0
+                        && v.compareTo(SalePricing.maxCashierDiscount(subtotal, maxDiscountPercent)) > 0) {
+                    throw new BusinessRuleException("Discounts above " + maxDiscountPercent + "% need an admin.");
+                }
+            }
         }
         if (cart.getDiscountType() == DiscountType.PERCENT) {
             if (v.compareTo(new BigDecimal("100")) > 0) {
@@ -137,6 +148,22 @@ public class CartService {
             }
         }
         cart.setDiscountValue(v.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    private BigDecimal computeSubtotal(Cart cart) {
+        if (cart.getItems().isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        Map<Long, Product> productMap = products.findAllById(cart.getItems().keySet()).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (Map.Entry<Long, Integer> entry : cart.getItems().entrySet()) {
+            Product product = productMap.get(entry.getKey());
+            if (product != null) {
+                subtotal = subtotal.add(SalePricing.lineTotal(product.getSellPrice(), entry.getValue()));
+            }
+        }
+        return subtotal;
     }
 
     /** Backwards-compatible overload: assumes non-admin (cashier). */
@@ -172,8 +199,12 @@ public class CartService {
         List<CartLine> lines = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
+        Map<Long, Product> productMap = cart.getItems().isEmpty() ? Map.of()
+                : products.findAllById(cart.getItems().keySet()).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
         for (Map.Entry<Long, Integer> entry : cart.getItems().entrySet()) {
-            Product product = products.findById(entry.getKey()).orElse(null);
+            Product product = productMap.get(entry.getKey());
             if (product == null) {
                 continue; // product was deleted while in cart — skip it
             }

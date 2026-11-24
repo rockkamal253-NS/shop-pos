@@ -21,11 +21,14 @@ import java.math.BigDecimal;
 import java.util.Collections;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.emptyString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -90,5 +93,33 @@ class PosControllerTest {
                 .andExpect(header().string("HX-Trigger", containsString("Stock just changed. Please review the cart and try again.")));
 
         verify(cartService, never()).clear(any());
+    }
+
+    @Test
+    void checkoutSuccessReturns200WithHxRedirectAndEmptyBodyWithoutViewingCart() throws Exception {
+        Cart cart = new Cart();
+        cart.getItems().put(1L, 1);
+        User cashier = new User("cashier1", "hash", "Cashier One", Role.CASHIER);
+        UserPrincipal principal = new UserPrincipal(cashier);
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        MockHttpSession session = new MockHttpSession();
+
+        Sale sale = mock(Sale.class);
+        when(sale.getId()).thenReturn(42L);
+
+        when(cartService.getCart(any())).thenReturn(cart);
+        when(currentUserService.getCurrent(any())).thenReturn(cashier);
+        when(saleService.completeSale(any(), any())).thenReturn(sale);
+
+        mockMvc.perform(post("/pos/checkout")
+                        .principal(auth)
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(header().string("HX-Redirect", "/sales/42/receipt?print=1"))
+                .andExpect(content().string(emptyString()));
+
+        verify(cartService).clear(session);
+        verify(cartService, never()).view(any());
     }
 }

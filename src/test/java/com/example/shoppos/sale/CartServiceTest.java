@@ -13,11 +13,16 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -117,6 +122,61 @@ class CartServiceTest {
                 () -> cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("101"), false));
         assertThrows(BusinessRuleException.class,
                 () -> cartService.setDiscount(session, DiscountType.PERCENT, new BigDecimal("101"), true));
+    }
+
+    @Test
+    void amountDiscountCappedForCashierSkippedForEmptyCartAndAdmin() {
+        Category category = new Category("Test Category");
+        Product product = new Product("Item", "SKU-1", "BC-1", category,
+                new BigDecimal("50.00"), new BigDecimal("100.00"), 10, 2, true);
+        ReflectionTestUtils.setField(product, "id", 1L);
+
+        // Subtotal = 100.00, max cashier percent = 20% -> max amount = 20.00
+        Cart cart = cartService.getCart(session);
+        cart.getItems().put(1L, 1);
+        when(productRepository.findAllById(any())).thenReturn(List.of(product));
+
+        // Cashier AMOUNT 20.00 accepted
+        cartService.setDiscount(session, DiscountType.AMOUNT, new BigDecimal("20.00"), false);
+        assertEquals(new BigDecimal("20.00"), cartService.getCart(session).getDiscountValue());
+
+        // Cashier AMOUNT 20.01 rejected with "need an admin" message
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> cartService.setDiscount(session, DiscountType.AMOUNT, new BigDecimal("20.01"), false));
+        assertEquals("Discounts above 20% need an admin.", ex.getMessage());
+
+        // Admin AMOUNT 50.00 accepted
+        cartService.setDiscount(session, DiscountType.AMOUNT, new BigDecimal("50.00"), true);
+        assertEquals(new BigDecimal("50.00"), cartService.getCart(session).getDiscountValue());
+
+        // Cashier AMOUNT 500.00 on an EMPTY cart accepted (early check skipped)
+        MockHttpSession emptySession = new MockHttpSession();
+        cartService.setDiscount(emptySession, DiscountType.AMOUNT, new BigDecimal("500.00"), false);
+        assertEquals(new BigDecimal("500.00"), cartService.getCart(emptySession).getDiscountValue());
+    }
+
+    @Test
+    void viewOnCartWith3ProductsCallsFindAllByIdOnceAndFindByIdNever() {
+        Category category = new Category("Test Category");
+        Product p1 = new Product("P1", "SKU-1", "BC-1", category, new BigDecimal("10.00"), new BigDecimal("15.00"), 5, 1, true);
+        Product p2 = new Product("P2", "SKU-2", "BC-2", category, new BigDecimal("20.00"), new BigDecimal("25.00"), 5, 1, true);
+        Product p3 = new Product("P3", "SKU-3", "BC-3", category, new BigDecimal("30.00"), new BigDecimal("35.00"), 5, 1, true);
+        ReflectionTestUtils.setField(p1, "id", 1L);
+        ReflectionTestUtils.setField(p2, "id", 2L);
+        ReflectionTestUtils.setField(p3, "id", 3L);
+
+        Cart cart = cartService.getCart(session);
+        cart.getItems().put(1L, 1);
+        cart.getItems().put(2L, 2);
+        cart.getItems().put(3L, 3);
+
+        when(productRepository.findAllById(cart.getItems().keySet())).thenReturn(List.of(p1, p2, p3));
+
+        CartService.CartView view = cartService.view(session);
+
+        assertEquals(3, view.lines().size());
+        verify(productRepository, times(1)).findAllById(cart.getItems().keySet());
+        verify(productRepository, never()).findById(any());
     }
 
     // ── end TASK-06 admin-flag tests ───────────────────────────────────────

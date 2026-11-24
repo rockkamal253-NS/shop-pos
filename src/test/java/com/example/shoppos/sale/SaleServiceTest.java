@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -373,5 +374,63 @@ class SaleServiceTest {
             products.deleteById(a.getId());
             products.deleteById(b.getId());
         }
+    }
+
+    @Test
+    void completeSaleAndVoidSaleProcessItemsInAscendingProductIdOrder() {
+        Product p1 = product("Product 1", "10.00", 20);
+        Product p2 = product("Product 2", "20.00", 20);
+        Product p3 = product("Product 3", "30.00", 20);
+        assertTrue(p1.getId() < p2.getId());
+        assertTrue(p2.getId() < p3.getId());
+
+        Cart cart = new Cart();
+        cart.getItems().put(p3.getId(), 3);
+        cart.getItems().put(p2.getId(), 2);
+        cart.getItems().put(p1.getId(), 1);
+        cart.setPaymentMethod(PaymentMethod.CASH);
+        cart.setCashTendered(new BigDecimal("9999.00"));
+
+        Sale sale = sales.completeSale(cart, cashier);
+
+        assertEquals(19, products.findById(p1.getId()).orElseThrow().getStockQuantity());
+        assertEquals(18, products.findById(p2.getId()).orElseThrow().getStockQuantity());
+        assertEquals(17, products.findById(p3.getId()).orElseThrow().getStockQuantity());
+
+        List<StockMovement> saleMovements = movements.findAll().stream()
+                .filter(m -> m.getReference().equals("SALE #" + sale.getId()))
+                .sorted(Comparator.comparing(StockMovement::getId))
+                .toList();
+        assertEquals(3, saleMovements.size());
+        assertEquals(p1.getId(), saleMovements.get(0).getProduct().getId());
+        assertEquals(p2.getId(), saleMovements.get(1).getProduct().getId());
+        assertEquals(p3.getId(), saleMovements.get(2).getProduct().getId());
+
+        long nonExistentId = 999999L;
+        Cart invalidCart = new Cart();
+        invalidCart.getItems().put(p1.getId(), 1);
+        invalidCart.getItems().put(nonExistentId, 1);
+        invalidCart.setCashTendered(new BigDecimal("9999.00"));
+        long saleCountBefore = saleRepository.count();
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> sales.completeSale(invalidCart, cashier));
+        assertEquals("A product in the cart no longer exists.", ex.getMessage());
+        assertEquals(saleCountBefore, saleRepository.count());
+
+        User admin = users.save(new User("admin_void_order_" + SEQ.incrementAndGet(),
+                passwordEncoder.encode("x"), "Test Admin", Role.ADMIN));
+        sales.voidSale(sale.getId(), admin);
+
+        assertEquals(20, products.findById(p1.getId()).orElseThrow().getStockQuantity());
+        assertEquals(20, products.findById(p2.getId()).orElseThrow().getStockQuantity());
+        assertEquals(20, products.findById(p3.getId()).orElseThrow().getStockQuantity());
+
+        List<StockMovement> voidMovements = movements.findAll().stream()
+                .filter(m -> m.getReference().equals("VOID #" + sale.getId()))
+                .sorted(Comparator.comparing(StockMovement::getId))
+                .toList();
+        assertEquals(3, voidMovements.size());
+        assertEquals(p1.getId(), voidMovements.get(0).getProduct().getId());
+        assertEquals(p2.getId(), voidMovements.get(1).getProduct().getId());
+        assertEquals(p3.getId(), voidMovements.get(2).getProduct().getId());
     }
 }
