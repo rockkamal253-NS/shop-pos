@@ -1,7 +1,13 @@
 package com.example.shoppos.user;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -48,13 +54,28 @@ class AdminUserControllerTest {
 
     private User admin;
     private User cashier;
+    private ListAppender<ILoggingEvent> auditAppender;
+    private Logger auditLogger;
 
     @BeforeEach
     void setUp() {
+        auditLogger = (Logger) LoggerFactory.getLogger("shoppos.audit");
+        auditAppender = new ListAppender<>();
+        auditAppender.start();
+        auditLogger.addAppender(auditAppender);
+
         admin = users.findByUsername("admin").orElseGet(() ->
                 users.save(new User("admin", encoder.encode("admin123"), "Test Admin", Role.ADMIN)));
         String cashierUsername = "test_cashier_" + COUNTER.incrementAndGet();
         cashier = users.save(new User(cashierUsername, encoder.encode("CashierPass123"), "Test Cashier", Role.CASHIER));
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (auditLogger != null && auditAppender != null) {
+            auditLogger.detachAppender(auditAppender);
+            auditAppender.stop();
+        }
     }
 
     @Test
@@ -222,5 +243,112 @@ class AdminUserControllerTest {
 
         reloadedAdmin = users.findById(admin.getId()).orElseThrow();
         assertTrue(reloadedAdmin.isEnabled());
+    }
+
+    @Test
+    void auditLogOnSuccessfulCreate() throws Exception {
+        String newUsername = "audit_cashier_" + COUNTER.incrementAndGet();
+        mvc.perform(post("/admin/users")
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("username", newUsername)
+                        .param("displayName", "Audit Cashier")
+                        .param("password", "SecretAuditPass123")
+                        .param("confirmPassword", "SecretAuditPass123")
+                        .param("role", "CASHIER"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/users"));
+
+        assertThat(auditAppender.list).hasSize(1);
+        ILoggingEvent event = auditAppender.list.get(0);
+        assertThat(event.getLevel()).isEqualTo(Level.INFO);
+        String msg = event.getFormattedMessage();
+        assertThat(msg).contains(admin.getUsername());
+        assertThat(msg).contains(newUsername);
+        assertThat(msg).contains("CASHIER");
+        assertThat(msg).doesNotContain("SecretAuditPass123");
+    }
+
+    @Test
+    void auditLogOnSuccessfulPasswordReset() throws Exception {
+        mvc.perform(post("/admin/users/{id}/password", cashier.getId())
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("newPassword", "NewSecretPassAudit789")
+                        .param("confirmPassword", "NewSecretPassAudit789"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/users"));
+
+        assertThat(auditAppender.list).hasSize(1);
+        ILoggingEvent event = auditAppender.list.get(0);
+        assertThat(event.getLevel()).isEqualTo(Level.INFO);
+        String msg = event.getFormattedMessage();
+        assertThat(msg).contains("reset the password of user id " + cashier.getId());
+        assertThat(msg).doesNotContain("NewSecretPassAudit789");
+    }
+
+    @Test
+    void auditLogOnDisableAndEnable() throws Exception {
+        mvc.perform(post("/admin/users/{id}/enabled", cashier.getId())
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("enabled", "false"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(auditAppender.list).hasSize(1);
+        assertThat(auditAppender.list.get(0).getLevel()).isEqualTo(Level.INFO);
+        assertThat(auditAppender.list.get(0).getFormattedMessage())
+                .contains("disabled user id " + cashier.getId());
+
+        auditAppender.list.clear();
+
+        mvc.perform(post("/admin/users/{id}/enabled", cashier.getId())
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("enabled", "true"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(auditAppender.list).hasSize(1);
+        assertThat(auditAppender.list.get(0).getLevel()).isEqualTo(Level.INFO);
+        assertThat(auditAppender.list.get(0).getFormattedMessage())
+                .contains("enabled user id " + cashier.getId());
+    }
+
+    @Test
+    void auditLogOnFailingRequestsZeroEvents() throws Exception {
+        // passwords do not match on create
+        mvc.perform(post("/admin/users")
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("username", "fail_" + COUNTER.incrementAndGet())
+                        .param("displayName", "Fail User")
+                        .param("password", "Pass123456")
+                        .param("confirmPassword", "Pass654321")
+                        .param("role", "CASHIER"))
+                .andExpect(status().is3xxRedirection());
+
+        // passwords do not match on reset
+        mvc.perform(post("/admin/users/{id}/password", cashier.getId())
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("newPassword", "Pass123456")
+                        .param("confirmPassword", "Pass654321"))
+                .andExpect(status().is3xxRedirection());
+
+        // disabling own account
+        mvc.perform(post("/admin/users/{id}/enabled", admin.getId())
+                        .with(user(new UserPrincipal(admin)))
+                        .with(csrf())
+                        .header("Referer", "/admin/users")
+                        .param("enabled", "false"))
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(auditAppender.list).isEmpty();
     }
 }
