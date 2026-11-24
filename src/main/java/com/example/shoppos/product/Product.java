@@ -193,10 +193,6 @@ public class Product {
         return version;
     }
 
-    public void setVersion(Long version) {
-        this.version = version;
-    }
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }

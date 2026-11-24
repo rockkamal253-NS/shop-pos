@@ -187,11 +187,11 @@ public class PosController {
 
     /** Completes the sale in one transaction, then HTMX-redirects to the printable receipt. */
     @PostMapping("/checkout")
-    public String checkout(HttpSession session,
+    public Object checkout(HttpSession session,
                            Model model,
                            HttpServletResponse response,
                            @AuthenticationPrincipal UserPrincipal principal) {
-        return withCartLock(session, () -> {
+        Supplier<Object> task = () -> {
             try {
                 Cart cart = carts.getCart(session);
                 if (cart.isEmpty()) {
@@ -200,9 +200,9 @@ public class PosController {
                 User cashier = currentUser.getCurrent(principal);
                 Sale sale = sales.completeSale(cart, cashier);
                 carts.clear(session);
-                response.setHeader("HX-Redirect", "/sales/" + sale.getId() + "/receipt?print=1");
-                fillModel(model, session);
-                return "pos/fragments :: cartInner";
+                return org.springframework.http.ResponseEntity.ok()
+                        .header("HX-Redirect", "/sales/" + sale.getId() + "/receipt?print=1")
+                        .build();
             } catch (InsufficientStockException e) {
                 model.addAttribute("checkoutError", "Sale rejected — not enough stock for: " + String.join("; ", e.getIssues()));
                 Toasts.send(response, "Sale rejected — not enough stock.", "error");
@@ -215,7 +215,8 @@ public class PosController {
             }
             fillModel(model, session);
             return "pos/fragments :: cartInner";
-        });
+        };
+        return withCartLock(session, task);
     }
 
     private void fillModel(Model model, HttpSession session) {

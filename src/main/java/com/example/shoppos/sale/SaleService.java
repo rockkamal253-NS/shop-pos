@@ -19,10 +19,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Sale completion and voiding. Both run in ONE transaction:
@@ -64,22 +67,26 @@ public class SaleService {
         }
 
         // 1. Load and validate everything BEFORE writing anything.
-        List<Product> sold = new ArrayList<>();
+        List<Long> sortedProductIds = cart.getItems().keySet().stream().sorted().toList();
+        Map<Long, Product> productMap = products.findAllById(sortedProductIds).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
         List<String> shortages = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
-        for (var entry : cart.getItems().entrySet()) {
-            Product product = products.findById(entry.getKey())
-                    .orElseThrow(() -> new BusinessRuleException("A product in the cart no longer exists."));
+        for (Long productId : sortedProductIds) {
+            Product product = productMap.get(productId);
+            if (product == null) {
+                throw new BusinessRuleException("A product in the cart no longer exists.");
+            }
             if (!product.isActive()) {
                 throw new BusinessRuleException("\"" + product.getName() + "\" is inactive and cannot be sold.");
             }
-            int qty = entry.getValue();
+            int qty = cart.getItems().get(productId);
             if (product.getStockQuantity() < qty) {
                 shortages.add(product.getName() + " (available " + product.getStockQuantity()
                         + ", requested " + qty + ")");
             }
-            sold.add(product);
             subtotal = subtotal.add(SalePricing.lineTotal(product.getSellPrice(), qty));
         }
         if (!shortages.isEmpty()) {
@@ -95,9 +102,7 @@ public class SaleService {
 
         // Enforce cashier discount cap (admins are exempt).
         if (cashier.getRole() != Role.ADMIN) {
-            BigDecimal maxAllowed = subtotal
-                    .multiply(BigDecimal.valueOf(maxCashierDiscountPercent))
-                    .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            BigDecimal maxAllowed = SalePricing.maxCashierDiscount(subtotal, maxCashierDiscountPercent);
             if (totals.discountAmount().compareTo(maxAllowed) > 0) {
                 throw new BusinessRuleException(
                         "Discounts above " + maxCashierDiscountPercent + "% need an admin.");
@@ -109,7 +114,7 @@ public class SaleService {
                 totals.discountAmount(), totals.total(), cart.getPaymentMethod(),
                 cash ? cart.getCashTendered() : null, cash ? totals.changeDue() : null);
         for (var entry : cart.getItems().entrySet()) {
-            Product product = sold.stream().filter(p -> p.getId().equals(entry.getKey())).findFirst().orElseThrow();
+            Product product = productMap.get(entry.getKey());
             sale.addItem(new SaleItem(product, entry.getValue(),
                     SalePricing.lineTotal(product.getSellPrice(), entry.getValue())));
         }
@@ -118,11 +123,11 @@ public class SaleService {
 
         // 3. Decrement stock (version bump => concurrent sales cannot oversell) and record movements.
         String reference = "SALE #" + sale.getId();
-        for (var entry : cart.getItems().entrySet()) {
-            Product product = sold.stream().filter(p -> p.getId().equals(entry.getKey())).findFirst().orElseThrow();
-            int qty = entry.getValue();
+        for (Long productId : sortedProductIds) {
+            Product product = productMap.get(productId);
+            int qty = cart.getItems().get(productId);
             product.setStockQuantity(product.getStockQuantity() - qty);
-            products.save(product);
+            products.saveAndFlush(product);
             inventory.record(product, MovementType.SALE, -qty, reference, cashier, "Sold at register");
         }
         return sale;
@@ -137,12 +142,25 @@ public class SaleService {
         if (sale.isVoided()) {
             throw new BusinessRuleException("This sale is already voided.");
         }
-        for (SaleItem item : sale.getItems()) {
-            Product product = products.findById(item.getProductId())
-                    .orElseThrow(() -> new BusinessRuleException(
-                            "Product \"" + item.getProductName() + "\" no longer exists — stock cannot be restored."));
+        List<Long> productIds = sale.getItems().stream()
+                .map(SaleItem::getProductId)
+                .distinct()
+                .sorted()
+                .toList();
+        Map<Long, Product> productMap = products.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        List<SaleItem> sortedItems = sale.getItems().stream()
+                .sorted(Comparator.comparing(SaleItem::getProductId))
+                .toList();
+        for (SaleItem item : sortedItems) {
+            Product product = productMap.get(item.getProductId());
+            if (product == null) {
+                throw new BusinessRuleException(
+                        "Product \"" + item.getProductName() + "\" no longer exists — stock cannot be restored.");
+            }
             product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
-            products.save(product);
+            products.saveAndFlush(product);
             inventory.record(product, MovementType.VOID_RESTORE, item.getQuantity(),
                     "VOID #" + sale.getId(), admin, "Sale voided by admin");
         }

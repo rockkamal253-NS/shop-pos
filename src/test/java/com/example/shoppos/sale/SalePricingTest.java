@@ -67,4 +67,11 @@ class SalePricingTest {
         var totals = SalePricing.compute(new BigDecimal("10.00"), DiscountType.AMOUNT, null, null);
         assertEquals("10.00", totals.total().toPlainString());
     }
+
+    @Test
+    void maxCashierDiscountCalculatesSubtotalTimesPercentDividedByHundred() {
+        assertEquals("20.00", SalePricing.maxCashierDiscount(new BigDecimal("100.00"), 20).toPlainString());
+        assertEquals("6.67", SalePricing.maxCashierDiscount(new BigDecimal("33.33"), 20).toPlainString());
+        assertEquals("0.00", SalePricing.maxCashierDiscount(new BigDecimal("0"), 20).toPlainString());
+    }
 }

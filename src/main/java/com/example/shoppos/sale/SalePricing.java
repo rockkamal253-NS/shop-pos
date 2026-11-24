@@ -45,6 +45,14 @@ public final class SalePricing {
         return unitPrice.multiply(BigDecimal.valueOf(quantity)).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /** Maximum cashier discount: subtotal * percent / 100, scale 2, HALF_UP. */
+    public static BigDecimal maxCashierDiscount(BigDecimal subtotal, int percent) {
+        BigDecimal safeSubtotal = subtotal == null ? BigDecimal.ZERO : subtotal;
+        return safeSubtotal
+                .multiply(BigDecimal.valueOf(percent))
+                .divide(HUNDRED, 2, RoundingMode.HALF_UP);
+    }
+
     private static BigDecimal clamp(BigDecimal value) {
         BigDecimal v = value == null ? BigDecimal.ZERO : value;
         return v.max(BigDecimal.ZERO);
