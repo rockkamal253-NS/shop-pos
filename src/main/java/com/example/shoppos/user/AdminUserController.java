@@ -1,6 +1,9 @@
 package com.example.shoppos.user;
 
 import com.example.shoppos.common.web.BusinessRuleException;
+import com.example.shoppos.common.web.LogSanitizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -17,6 +20,8 @@ import java.util.Objects;
 @RequestMapping("/admin/users")
 public class AdminUserController {
 
+    private static final Logger audit = LoggerFactory.getLogger("shoppos.audit");
+
     private final UserAdminService userAdminService;
 
     public AdminUserController(UserAdminService userAdminService) {
@@ -32,7 +37,8 @@ public class AdminUserController {
     }
 
     @PostMapping
-    public String createUser(@RequestParam(value = "username", required = false) String username,
+    public String createUser(@AuthenticationPrincipal UserPrincipal principal,
+                             @RequestParam(value = "username", required = false) String username,
                              @RequestParam(value = "displayName", required = false) String displayName,
                              @RequestParam(value = "password", required = false) String password,
                              @RequestParam(value = "confirmPassword", required = false) String confirmPassword,
@@ -41,7 +47,10 @@ public class AdminUserController {
         if (!Objects.equals(password, confirmPassword)) {
             throw new BusinessRuleException("Passwords do not match.");
         }
-        userAdminService.createUser(username, displayName, password, role);
+        User created = userAdminService.createUser(username, displayName, password, role);
+        String actor = LogSanitizer.safe(principal != null ? principal.getUsername() : null);
+        String target = LogSanitizer.safe(created.getUsername());
+        audit.info("Admin action: '{}' created user '{}' with role {}", actor, target, role);
         redirectAttributes.addFlashAttribute("toastSuccess", "User created.");
         return "redirect:/admin/users";
     }
@@ -56,6 +65,8 @@ public class AdminUserController {
             throw new BusinessRuleException("Passwords do not match.");
         }
         userAdminService.resetPassword(principal.getId(), id, newPassword);
+        String actor = LogSanitizer.safe(principal != null ? principal.getUsername() : null);
+        audit.info("Admin action: '{}' reset the password of user id {}", actor, id);
         redirectAttributes.addFlashAttribute("toastSuccess", "Password updated.");
         return "redirect:/admin/users";
     }
@@ -66,6 +77,12 @@ public class AdminUserController {
                              @RequestParam("enabled") boolean enabled,
                              RedirectAttributes redirectAttributes) {
         userAdminService.setEnabled(principal.getId(), id, enabled);
+        String actor = LogSanitizer.safe(principal != null ? principal.getUsername() : null);
+        if (enabled) {
+            audit.info("Admin action: '{}' enabled user id {}", actor, id);
+        } else {
+            audit.info("Admin action: '{}' disabled user id {}", actor, id);
+        }
         redirectAttributes.addFlashAttribute("toastSuccess", enabled ? "User enabled." : "User disabled.");
         return "redirect:/admin/users";
     }

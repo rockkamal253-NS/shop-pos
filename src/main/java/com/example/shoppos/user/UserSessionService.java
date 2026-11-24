@@ -1,5 +1,6 @@
 package com.example.shoppos.user;
 
+import com.example.shoppos.common.web.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.session.SessionInformation;
@@ -38,7 +39,7 @@ public class UserSessionService {
             }
         }
         if (expiredCount > 0) {
-            log.info("Expired {} session(s) for user '{}'", expiredCount, sanitize(normalized));
+            log.info("Expired {} session(s) for user '{}'", expiredCount, LogSanitizer.safe(normalized));
         }
         return expiredCount;
     }
@@ -54,10 +55,5 @@ public class UserSessionService {
         } else {
             expireSessions(username);
         }
-    }
-
-    private String sanitize(String key) {
-        String truncated = key.length() > 64 ? key.substring(0, 64) : key;
-        return truncated.replaceAll("[^a-zA-Z0-9._@-]", "_");
     }
 }

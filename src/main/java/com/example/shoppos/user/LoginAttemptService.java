@@ -1,5 +1,6 @@
 package com.example.shoppos.user;
 
+import com.example.shoppos.common.web.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,7 +108,7 @@ public class LoginAttemptService {
         if (state.failureCount >= maxAttempts && state.lockedUntil == null) {
             state.lockedUntil = now.plus(lockMinutes, ChronoUnit.MINUTES);
             log.warn("Login lock started for user '{}' until {} after {} failed attempts",
-                    sanitize(key), state.lockedUntil, state.failureCount);
+                    LogSanitizer.safe(key), state.lockedUntil, state.failureCount);
         }
     }
 
@@ -124,11 +125,6 @@ public class LoginAttemptService {
 
     synchronized int trackedCount() {
         return attempts.size();
-    }
-
-    private String sanitize(String key) {
-        String truncated = key.length() > 64 ? key.substring(0, 64) : key;
-        return truncated.replaceAll("[^a-zA-Z0-9._@-]", "_");
     }
 
     private String normalize(String username) {

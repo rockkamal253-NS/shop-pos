@@ -16,7 +16,19 @@ Prod: PostgreSQL — set `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`, `APP
 
 ## Tests
 
-`./mvnw clean verify` — 39 tests covering pricing math, the sale transaction, stock rules and the dashboard.
+`./mvnw clean verify` runs the full suite. The PostgreSQL query tests use Testcontainers and need Docker; without Docker they are skipped, so before merging check that the CI log shows `Skipped: 0`.
+
+## Deploying to production
+
+1. Profile: set `SPRING_PROFILES_ACTIVE=prod`. The app refuses to start without a profile.
+2. Environment variables: `PROD_DB_URL`, `PROD_DB_USER`, `PROD_DB_PASSWORD`, `APP_ADMIN_PASSWORD` (required, must not be `admin123`) and optionally `APP_ADMIN_USERNAME`. `SESSION_COOKIE_SECURE` defaults to `true`; set it to `false` only for a plain-HTTP local test.
+3. HTTPS: the app does not terminate TLS. Put it behind a reverse proxy (nginx, Caddy, ...) that terminates HTTPS, sends `X-Forwarded-Proto` and `X-Forwarded-Host`, overwrites any `X-Forwarded-*` headers sent by clients and adds HSTS. Do not expose the app port directly to the network.
+4. One instance only: carts and login lockouts live in memory. Do not run two copies. A restart logs everybody out, empties the carts and resets the login lockouts.
+5. Backups: take a nightly `pg_dump` of the production database, keep several days, copy them off the server and test a restore once.
+6. Database: Flyway creates and updates the schema on startup. Never edit an applied migration; add a new `V<n>__name.sql`.
+7. Logs: watch for `Login lock started for user ...` (a locked account), `Expired N session(s) for user ...` (a user was cut off) and `Admin action: ...` (user created, password reset, user enabled or disabled).
+8. Updates: Dependabot opens weekly pull requests. Merge only when CI is green and review Spring Boot upgrades by hand.
+9. GitHub settings (once): protect `main` (pull request required, status check `verify` required, no force pushes) and keep CodeQL on.
 
 ## Project structure
 
