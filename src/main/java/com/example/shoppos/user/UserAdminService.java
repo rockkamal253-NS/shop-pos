@@ -15,11 +15,16 @@ public class UserAdminService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService loginAttemptService;
+    private final UserSessionService sessions;
 
-    public UserAdminService(UserRepository users, PasswordEncoder passwordEncoder, LoginAttemptService loginAttemptService) {
+    public UserAdminService(UserRepository users,
+                            PasswordEncoder passwordEncoder,
+                            LoginAttemptService loginAttemptService,
+                            UserSessionService sessions) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.loginAttemptService = loginAttemptService;
+        this.sessions = sessions;
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +78,7 @@ public class UserAdminService {
         target.setPasswordHash(passwordEncoder.encode(newPassword));
         users.save(target);
         loginAttemptService.loginSucceeded(target.getUsername());
+        sessions.expireSessionsAfterCommit(target.getUsername());
     }
 
     @Transactional
@@ -99,6 +105,9 @@ public class UserAdminService {
 
         target.setEnabled(enabled);
         users.save(target);
+        if (!enabled) {
+            sessions.expireSessionsAfterCommit(target.getUsername());
+        }
     }
 
     private boolean isSameUser(User a, User b) {

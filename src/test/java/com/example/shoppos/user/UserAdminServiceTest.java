@@ -30,6 +30,9 @@ class UserAdminServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserSessionService userSessionService;
+
     private PasswordEncoder passwordEncoder;
     private LoginAttemptService loginAttemptService;
     private UserAdminService userAdminService;
@@ -39,7 +42,7 @@ class UserAdminServiceTest {
         passwordEncoder = new BCryptPasswordEncoder();
         Clock clock = Clock.fixed(Instant.parse("2026-11-22T10:00:00Z"), ZoneId.of("UTC"));
         loginAttemptService = new LoginAttemptService(clock, 5, 10);
-        userAdminService = new UserAdminService(userRepository, passwordEncoder, loginAttemptService);
+        userAdminService = new UserAdminService(userRepository, passwordEncoder, loginAttemptService, userSessionService);
     }
 
     private User createUser(Long id, String username, String rawPassword, String displayName, Role role, boolean enabled) {
@@ -132,6 +135,7 @@ class UserAdminServiceTest {
 
         assertThat(passwordEncoder.matches("newPassword123", target.getPassword())).isTrue();
         verify(userRepository).save(target);
+        verify(userSessionService).expireSessionsAfterCommit("cashier1");
     }
 
     @Test
@@ -143,6 +147,7 @@ class UserAdminServiceTest {
 
         assertThat(ex.getMessage()).isEqualTo("User not found.");
         verify(userRepository, never()).save(any());
+        verify(userSessionService, never()).expireSessionsAfterCommit(any());
     }
 
     @Test
@@ -157,6 +162,7 @@ class UserAdminServiceTest {
         assertThat(ex.getMessage()).isEqualTo("Use Change password for your own account.");
         assertThat(target.getPassword()).isEqualTo(originalHash);
         verify(userRepository, never()).save(any());
+        verify(userSessionService, never()).expireSessionsAfterCommit(any());
     }
 
     @Test
@@ -168,6 +174,7 @@ class UserAdminServiceTest {
                 () -> userAdminService.resetPassword(1L, 2L, "1234567"));
 
         verify(userRepository, never()).save(any());
+        verify(userSessionService, never()).expireSessionsAfterCommit(any());
     }
 
     @Test
@@ -184,6 +191,7 @@ class UserAdminServiceTest {
 
         assertThat(loginAttemptService.isLocked("cashier1")).isFalse();
         verify(userRepository).save(target);
+        verify(userSessionService).expireSessionsAfterCommit("cashier1");
     }
 
     @Test
@@ -195,6 +203,7 @@ class UserAdminServiceTest {
 
         assertThat(cashier.isEnabled()).isFalse();
         verify(userRepository).save(cashier);
+        verify(userSessionService).expireSessionsAfterCommit("cashier1");
     }
 
     @Test
@@ -208,6 +217,7 @@ class UserAdminServiceTest {
         assertThat(ex.getMessage()).isEqualTo("You cannot disable your own account.");
         assertThat(admin.isEnabled()).isTrue();
         verify(userRepository, never()).save(any());
+        verify(userSessionService, never()).expireSessionsAfterCommit(any());
     }
 
     @Test
@@ -222,6 +232,7 @@ class UserAdminServiceTest {
         assertThat(ex.getMessage()).isEqualTo("At least one enabled admin is required.");
         assertThat(targetAdmin.isEnabled()).isTrue();
         verify(userRepository, never()).save(any());
+        verify(userSessionService, never()).expireSessionsAfterCommit(any());
     }
 
     @Test
@@ -235,6 +246,7 @@ class UserAdminServiceTest {
 
         assertThat(targetAdmin.isEnabled()).isFalse();
         verify(userRepository).save(targetAdmin);
+        verify(userSessionService).expireSessionsAfterCommit("admin2");
     }
 
     @Test
@@ -246,6 +258,7 @@ class UserAdminServiceTest {
 
         assertThat(targetCashier.isEnabled()).isTrue();
         verify(userRepository).save(targetCashier);
+        verify(userSessionService, never()).expireSessionsAfterCommit(any());
     }
 
     @Test
