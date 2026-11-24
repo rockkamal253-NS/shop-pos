@@ -5,3 +5,11 @@ data/
 *.iml
 .DS_Store
 .tailwind/
+
+# local secrets
+.env
+.env.*
+*.pem
+*.key
+application-local.yml
+

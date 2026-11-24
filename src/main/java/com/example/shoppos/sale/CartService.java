@@ -122,12 +122,12 @@ public class CartService {
 
     public void setDiscount(HttpSession session, DiscountType type, BigDecimal value, boolean admin) {
         Cart cart = getCart(session);
-        cart.setDiscountType(type == null ? DiscountType.NONE : type);
+        DiscountType newType = type == null ? DiscountType.NONE : type;
         BigDecimal v = value == null ? BigDecimal.ZERO : value;
         if (v.signum() < 0) {
             throw new BusinessRuleException("Discount cannot be negative.");
         }
-        if (cart.getDiscountType() == DiscountType.AMOUNT) {
+        if (newType == DiscountType.AMOUNT) {
             if (v.compareTo(MAX_AMOUNT) > 0) {
                 throw new BusinessRuleException("Amount is too large.");
             }
@@ -139,7 +139,7 @@ public class CartService {
                 }
             }
         }
-        if (cart.getDiscountType() == DiscountType.PERCENT) {
+        if (newType == DiscountType.PERCENT) {
             if (v.compareTo(new BigDecimal("100")) > 0) {
                 throw new BusinessRuleException("Percentage discount cannot exceed 100%.");
             }
@@ -147,6 +147,7 @@ public class CartService {
                 throw new BusinessRuleException("Discounts above " + maxDiscountPercent + "% need an admin.");
             }
         }
+        cart.setDiscountType(newType);
         cart.setDiscountValue(v.setScale(2, RoundingMode.HALF_UP));
     }
 
