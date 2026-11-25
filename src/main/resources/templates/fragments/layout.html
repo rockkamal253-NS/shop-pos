@@ -103,7 +103,10 @@
 </div>
 
 <!-- Toast container -->
-<div id="toast-container" class="fixed right-4 top-20 z-50 flex w-80 flex-col gap-2" aria-live="polite"></div>
+<div id="toast-container"
+     class="fixed right-4 top-20 z-50 flex w-80 flex-col gap-2"
+     aria-live="polite"
+     th:attr="data-toast-success=${toastSuccess}, data-toast-error=${toastError}"></div>
 
 <!-- Confirmation dialog for destructive actions -->
 <dialog id="confirm-dialog"
@@ -122,14 +125,6 @@
         <button type="button" class="btn btn-danger" id="confirm-ok">Confirm</button>
     </div>
 </dialog>
-
-<!-- Flash toasts for classic (non-HTMX) form flows -->
-<th:block th:if="${toastSuccess}">
-    <script th:inline="javascript">window.addEventListener('load', () => showToast(/*[[${toastSuccess}]]*/ '', 'success'));</script>
-</th:block>
-<th:block th:if="${toastError}">
-    <script th:inline="javascript">window.addEventListener('load', () => showToast(/*[[${toastError}]]*/ '', 'error'));</script>
-</th:block>
 
 </body>
 </html>

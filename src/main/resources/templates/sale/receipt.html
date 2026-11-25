@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="'Receipt #' + ${sale.id}">Receipt</title>
     <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/js/receipt.js}" defer></script>
 </head>
 <body class="bg-slate-100 font-sans text-slate-800">
 <main class="mx-auto my-8 w-[320px]">
@@ -89,7 +90,7 @@
     </div>
 
     <div class="no-print mt-4 flex justify-center gap-2">
-        <button type="button" class="btn btn-primary" onclick="window.print()">
+        <button id="print-receipt-btn" type="button" class="btn btn-primary">
             <svg th:replace="~{fragments/icons :: printer('h-4 w-4')}"></svg>
             Print receipt
         </button>
@@ -100,12 +101,5 @@
     </div>
 </main>
 
-<script>
-    window.addEventListener('load', function () {
-        if (new URLSearchParams(window.location.search).get('print') === '1') {
-            window.print();
-        }
-    });
-</script>
 </body>
 </html>

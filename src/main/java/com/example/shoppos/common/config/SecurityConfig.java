@@ -22,6 +22,11 @@ import java.time.ZoneId;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    static final String CONTENT_SECURITY_POLICY =
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                    + "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+                    + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -45,6 +50,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, SessionRegistry sessionRegistry) throws Exception {
         http
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/vendor/**", "/fonts/**", "/login", "/error").permitAll()
                         // Cashiers run the register and can look at the product list only.

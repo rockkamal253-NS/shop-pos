@@ -113,24 +113,7 @@
             Every adjustment is recorded in the product&rsquo;s movement history with your name and the reason.
         </p>
     </aside>
-    <script>
-    (function () {
-        var row = document.getElementById('direction-row');
-        document.querySelectorAll('input[name="type"]').forEach(function (radio) {
-            radio.addEventListener('change', function () {
-                row.classList.toggle('hidden', radio.value !== 'CORRECTION' || !radio.checked);
-                if (radio.checked && radio.value !== 'CORRECTION') {
-                    row.classList.add('hidden');
-                } else if (radio.checked && radio.value === 'CORRECTION') {
-                    row.classList.remove('hidden');
-                }
-            });
-            if (radio.checked) {
-                row.classList.toggle('hidden', radio.value !== 'CORRECTION');
-            }
-        });
-    })();
-</script>
+    <script th:src="@{/js/inventory-adjust.js}" defer></script>
 </div>
     
 
