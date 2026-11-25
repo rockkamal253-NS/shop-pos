@@ -126,5 +126,20 @@
         }
     });
 
+    window.addEventListener('load', function () {
+        var container = document.getElementById('toast-container');
+        if (!container) {
+            return;
+        }
+        var success = container.getAttribute('data-toast-success');
+        if (success) {
+            showToast(success, 'success');
+        }
+        var error = container.getAttribute('data-toast-error');
+        if (error) {
+            showToast(error, 'error');
+        }
+    });
+
     window.showToast = showToast;
 })();

@@ -7,7 +7,7 @@
 
     <!-- Left: scan box + product results grid -->
     <section class="min-w-0">
-        <form class="relative mb-2" th:action="@{/pos/scan}" method="post" onsubmit="return false;">
+        <form id="scan-form" class="relative mb-2" th:action="@{/pos/scan}" method="post">
             <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <svg th:replace="~{fragments/icons :: barcode('h-5 w-5')}"></svg>
             </span>
@@ -31,31 +31,7 @@
             <th:block th:replace="~{pos/fragments :: cartInner}"></th:block>
         </div>
     </aside>
-    <script>
-    (function () {
-        // Enter in the scan box posts /pos/scan (exact match => added to cart).
-        var input = document.getElementById('scan-input');
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                htmx.ajax('POST', '/pos/scan', {target: '#results-area', swap: 'innerHTML', values: {q: input.value}})
-                    .then(function () {
-                        input.value = '';
-                        input.focus();
-                    });
-            }
-        });
-        // Keep the scan box ready after every results swap (scanner workflow).
-        document.body.addEventListener('htmx:afterSwap', function (e) {
-            if (e.detail && e.detail.target && e.detail.target.id === 'results-area') {
-                var s = document.getElementById('scan-input');
-                if (s) {
-                    s.focus();
-                }
-            }
-        });
-    })();
-</script>
+    <script th:src="@{/js/pos.js}" defer></script>
 </div>
     
 
