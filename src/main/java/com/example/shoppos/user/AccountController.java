@@ -1,5 +1,6 @@
 package com.example.shoppos.user;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -17,10 +18,14 @@ public class AccountController {
 
     private final AccountService accountService;
     private final CurrentUserService currentUserService;
+    private final UserSessionService userSessionService;
 
-    public AccountController(AccountService accountService, CurrentUserService currentUserService) {
+    public AccountController(AccountService accountService,
+                             CurrentUserService currentUserService,
+                             UserSessionService userSessionService) {
         this.accountService = accountService;
         this.currentUserService = currentUserService;
+        this.userSessionService = userSessionService;
     }
 
     @GetMapping("/password")
@@ -35,12 +40,14 @@ public class AccountController {
     public String changePassword(@AuthenticationPrincipal UserPrincipal principal,
                                  @Valid @ModelAttribute("form") PasswordChangeForm form,
                                  BindingResult binding,
+                                 HttpServletRequest request,
                                  RedirectAttributes redirectAttributes) {
         User user = currentUserService.getCurrent(principal);
         boolean success = accountService.changePassword(user, form, binding);
         if (!success) {
             return "account/password";
         }
+        userSessionService.expireOtherSessions(principal.getUsername(), request.getSession().getId());
         redirectAttributes.addFlashAttribute("toastSuccess", "Password changed.");
         return "redirect:/";
     }
