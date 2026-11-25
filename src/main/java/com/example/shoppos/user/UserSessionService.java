@@ -23,6 +23,10 @@ public class UserSessionService {
     }
 
     public int expireSessions(String username) {
+        return expireOtherSessions(username, null);
+    }
+
+    public int expireOtherSessions(String username, String keepSessionId) {
         if (username == null || username.isBlank()) {
             return 0;
         }
@@ -32,6 +36,9 @@ public class UserSessionService {
             if (principal instanceof UserPrincipal userPrincipal) {
                 if (userPrincipal.getUsername() != null && normalized.equalsIgnoreCase(userPrincipal.getUsername().trim())) {
                     for (SessionInformation sessionInfo : sessionRegistry.getAllSessions(principal, false)) {
+                        if (keepSessionId != null && keepSessionId.equals(sessionInfo.getSessionId())) {
+                            continue;
+                        }
                         sessionInfo.expireNow();
                         expiredCount++;
                     }

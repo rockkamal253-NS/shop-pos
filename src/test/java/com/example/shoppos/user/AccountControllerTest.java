@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -47,6 +50,9 @@ class AccountControllerTest {
 
     @Autowired
     private PasswordEncoder encoder;
+
+    @Autowired
+    private SessionRegistry sessionRegistry;
 
     private User cashier;
 
@@ -121,5 +127,39 @@ class AccountControllerTest {
                 .andExpect(view().name("account/password"))
                 .andExpect(model().attributeHasFieldErrors("form", "confirmPassword"));
         assertTrue(storedHashMatches(OLD_PASSWORD));
+    }
+
+    @Test
+    void validChangeExpiresOtherSessionsAndKeepsCurrentSession() throws Exception {
+        UserPrincipal principal = new UserPrincipal(cashier);
+        MockHttpSession keptSession = new MockHttpSession();
+        String otherSessionId = "other-" + cashier.getUsername();
+        sessionRegistry.registerNewSession(keptSession.getId(), principal);
+        sessionRegistry.registerNewSession(otherSessionId, principal);
+
+        mvc.perform(submitAsCashier(OLD_PASSWORD, NEW_PASSWORD, NEW_PASSWORD).session(keptSession))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/"))
+                .andExpect(flash().attribute("toastSuccess", "Password changed."));
+
+        assertFalse(sessionRegistry.getSessionInformation(keptSession.getId()).isExpired());
+        assertTrue(sessionRegistry.getSessionInformation(otherSessionId).isExpired());
+    }
+
+    @Test
+    void wrongCurrentPasswordDoesNotExpireAnySession() throws Exception {
+        UserPrincipal principal = new UserPrincipal(cashier);
+        MockHttpSession keptSession = new MockHttpSession();
+        String otherSessionId = "other-wrong-" + cashier.getUsername();
+        sessionRegistry.registerNewSession(keptSession.getId(), principal);
+        sessionRegistry.registerNewSession(otherSessionId, principal);
+
+        mvc.perform(submitAsCashier("not-the-password", NEW_PASSWORD, NEW_PASSWORD).session(keptSession))
+                .andExpect(status().isOk())
+                .andExpect(view().name("account/password"))
+                .andExpect(model().attributeHasFieldErrors("form", "currentPassword"));
+
+        assertFalse(sessionRegistry.getSessionInformation(keptSession.getId()).isExpired());
+        assertFalse(sessionRegistry.getSessionInformation(otherSessionId).isExpired());
     }
 }

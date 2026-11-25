@@ -94,4 +94,51 @@ class UserSessionServiceTest {
             TransactionSynchronizationManager.clearSynchronization();
         }
     }
+
+    @Test
+    void expireOtherSessions_expiresOtherSessionsAndKeepsGivenSession() {
+        User user1 = new User("cashier1", "hash", "Cashier 1", Role.CASHIER);
+        UserPrincipal principal1a = new UserPrincipal(user1);
+        UserPrincipal principal1b = new UserPrincipal(user1);
+        User user2 = new User("cashier2", "hash", "Cashier 2", Role.CASHIER);
+
+        sessionRegistry.registerNewSession("keep-session", principal1a);
+        sessionRegistry.registerNewSession("other-session-1", principal1a);
+        sessionRegistry.registerNewSession("other-session-2", principal1b);
+        sessionRegistry.registerNewSession("user2-session", new UserPrincipal(user2));
+
+        int count = userSessionService.expireOtherSessions("Cashier1 ", "keep-session");
+
+        assertThat(count).isEqualTo(2);
+        assertThat(sessionRegistry.getSessionInformation("keep-session").isExpired()).isFalse();
+        assertThat(sessionRegistry.getSessionInformation("other-session-1").isExpired()).isTrue();
+        assertThat(sessionRegistry.getSessionInformation("other-session-2").isExpired()).isTrue();
+        assertThat(sessionRegistry.getSessionInformation("user2-session").isExpired()).isFalse();
+    }
+
+    @Test
+    void expireOtherSessions_unknownNullOrBlankUsernameReturnsZero() {
+        User user1 = new User("cashier1", "hash", "Cashier 1", Role.CASHIER);
+        sessionRegistry.registerNewSession("session-1", new UserPrincipal(user1));
+
+        assertThat(userSessionService.expireOtherSessions("unknown", "session-1")).isZero();
+        assertThat(userSessionService.expireOtherSessions(null, "session-1")).isZero();
+        assertThat(userSessionService.expireOtherSessions("", "session-1")).isZero();
+        assertThat(userSessionService.expireOtherSessions("   ", "session-1")).isZero();
+        assertThat(sessionRegistry.getSessionInformation("session-1").isExpired()).isFalse();
+    }
+
+    @Test
+    void expireOtherSessions_nullKeepSessionIdExpiresAllUserSessions() {
+        User user1 = new User("cashier1", "hash", "Cashier 1", Role.CASHIER);
+        UserPrincipal principal1 = new UserPrincipal(user1);
+        sessionRegistry.registerNewSession("session-1", principal1);
+        sessionRegistry.registerNewSession("session-2", principal1);
+
+        int count = userSessionService.expireOtherSessions("cashier1", null);
+
+        assertThat(count).isEqualTo(2);
+        assertThat(sessionRegistry.getSessionInformation("session-1").isExpired()).isTrue();
+        assertThat(sessionRegistry.getSessionInformation("session-2").isExpired()).isTrue();
+    }
 }
