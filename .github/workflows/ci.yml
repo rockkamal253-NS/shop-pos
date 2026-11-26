@@ -17,3 +17,9 @@ jobs:
           cache: maven
       - run: chmod +x mvnw
       - run: ./mvnw -B -ntp verify
+      - name: Fail if any test was skipped
+        run: |
+          if grep -lE '<testsuite [^>]*skipped="[1-9]' target/surefire-reports/TEST-*.xml; then
+            echo "Skipped tests found - the PostgreSQL (Testcontainers) tests did not run."
+            exit 1
+          fi
