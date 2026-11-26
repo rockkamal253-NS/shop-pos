@@ -59,7 +59,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleUnexpectedHasResponseStatus500Annotation() throws Exception {
-        Method method = GlobalExceptionHandler.class.getMethod("handleUnexpected", Exception.class);
+        Method method = GlobalExceptionHandler.class.getMethod("handleUnexpected", Exception.class,
+                jakarta.servlet.http.HttpServletRequest.class, org.springframework.ui.Model.class);
         ResponseStatus annotation = method.getAnnotation(ResponseStatus.class);
         assertNotNull(annotation, "handleUnexpected must be annotated with @ResponseStatus");
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, annotation.value());
